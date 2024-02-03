@@ -1,6 +1,7 @@
 const std = @import("std");
 const windows = std.os.windows;
 const kernel32 = windows.kernel32;
+const w = @import("windows_window.zig");
 
 const COORD = windows.COORD;
 const DWORD = windows.DWORD;
@@ -31,6 +32,7 @@ pub fn clearConsole() !void {
     }
 }
 pub fn main() void {
-    std.debug.print("Hello {s}!\n", .{"World"});
     try clearConsole();
+    try w.createWindow(800, 500);
+    while (w.tickWindow()) {}
 }
