@@ -31,8 +31,13 @@ pub fn clearConsole() !void {
         }
     }
 }
+
+const W: u32 = 800;
+const H: u32 = 600;
+var buffer: [W * H]u32 = [1]u32{0xFF} ** (W * H);
 pub fn main() void {
     try clearConsole();
-    try w.createWindow(800, 500);
     while (w.tickWindow()) {}
+    w.createWindow(W, H, &buffer);
+        w.redraw();
 }
