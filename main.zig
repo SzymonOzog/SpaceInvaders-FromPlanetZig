@@ -15,12 +15,12 @@ pub fn clearConsole() !void {
         if (kernel32.GetConsoleScreenBufferInfo(stdoutHandle, &csbi) == 0) {
             std.debug.print("Error", .{});
         }
-        var tl: COORD = .{ .X = 0, .Y = 0 };
+        const tl: COORD = .{ .X = 0, .Y = 0 };
         var written: DWORD = undefined;
         std.debug.print("\nterm size {d}, {d}!\n", .{ csbi.dwSize.X, csbi.dwSize.Y });
-        var consoleX: u32 = @intCast(csbi.dwSize.X);
-        var consoleY: u32 = @intCast(csbi.dwSize.Y);
-        var cells = consoleX * consoleY;
+        const consoleX: u32 = @intCast(csbi.dwSize.X);
+        const consoleY: u32 = @intCast(csbi.dwSize.Y);
+        const cells = consoleX * consoleY;
 
         if (kernel32.FillConsoleOutputCharacterA(stdoutHandle, ' ', cells, tl, &written) == 0) {
             std.debug.print("Error at FillConsoleOutputCharacterA", .{});
