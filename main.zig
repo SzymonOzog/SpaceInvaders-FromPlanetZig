@@ -1,6 +1,7 @@
 const std = @import("std");
 const windows = std.os.windows;
 const kernel32 = windows.kernel32;
+const ds = @import("data_structures.zig");
 const w = @import("windows_window.zig");
 
 const COORD = windows.COORD;
@@ -39,6 +40,9 @@ var buffer: [W * H]u32 = [1]u32{0xFF} ** (W * H);
 const spr: [100][10]u32 = [_][10]u32{[_]u32{0xFFFF} ** 10}**100;
 const player: [30][30]u32 = [_][30]u32{[_]u32{0xFF00} ** 30}**30;
 const enemy: [30][30]u32 = [_][30]u32{[_]u32{0xFFFF00} ** 30}**30;
+
+var playerInput = ds.PlayerInput{.left = false, .right = false, .shoot = false};
+
 pub fn setPixel(x:u32, y:u32, color:u32) void{
     buffer[(W*y)+x] = color;
 }
@@ -50,11 +54,20 @@ pub fn drawSprite(x:u32, y:u32, comptime sizeX:u32, comptime sizeY:u32, sprite:[
         }
     }
 }
+
 pub fn main() void {
     try clearConsole();
-    while (w.tickWindow()) {}
     w.createWindow(W, H, &buffer);
+    while (w.tickWindow(&playerInput)) {
         drawSprite(400,220,30,30, player);
         drawSprite(400,20,30,30, enemy);
+        if(playerInput.left){
+            std.debug.print("pressed left", .{});
+        } else if(playerInput.right){
+            std.debug.print("pressed right", .{});
+        } else if(playerInput.shoot){
+            std.debug.print("pressed shoot", .{});
+        }
         w.redraw();
+    }
 }

@@ -1,4 +1,5 @@
 const std = @import("std");
+const ds = @import("data_structures.zig");
 const w = @cImport({
     @cInclude("windows.h");
 });
@@ -17,16 +18,39 @@ var height: u32 = undefined;
 
 pub var scrBuffer: []u32 = undefined;
 
+const VK_H = 0x48;
+const VK_L = 0x4C;
+const VK_SPACE = 0x20;
+
 pub fn isWindowOpen() bool {
     return w.IsWindow(handle) == 1;
 }
 
+pub fn tickWindow(input: *ds.PlayerInput) bool {
+    var msg: w.MSG = undefined;
     if (w.GetMessageA(&msg, handle, 0, 0) == 0) {
         std.debug.print("Error at GetMessageA {d}", .{w.GetLastError()});
         return false;
     }
     _ = w.TranslateMessage(&msg);
     _ = w.DispatchMessageA(&msg);
+    if (msg.message == w.WM_KEYDOWN) {
+        if(msg.wParam == VK_H){
+            input.*.left = true;
+        } else if(msg.wParam == VK_L){
+            input.*.right = true;
+        }else if(msg.wParam == VK_SPACE){
+            input.*.shoot = true;
+        }
+    } else if (msg.message == w.WM_KEYUP) {
+        if(msg.wParam == VK_H){
+            input.*.left = false;
+        } else if(msg.wParam == VK_L){
+            input.*.right = false;
+        }else if(msg.wParam == VK_SPACE){
+            input.*.shoot = false;
+        }
+    }
     return isWindowOpen();
 }
 
