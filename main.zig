@@ -33,41 +33,97 @@ pub fn clearConsole() !void {
     }
 }
 
+const blockSize = 30
 const W: u32 = 800;
 const H: u32 = 600;
-var buffer: [W * H]u32 = [1]u32{0xFF} ** (W * H);
+const backgroundColor = 0xFF;
+var buffer: [W * H]u32 = [1]u32{backgroundColor} ** (W * H);
 
-const spr: [100][10]u32 = [_][10]u32{[_]u32{0xFFFF} ** 10}**100;
-const player: [30][30]u32 = [_][30]u32{[_]u32{0xFF00} ** 30}**30;
-const enemy: [30][30]u32 = [_][30]u32{[_]u32{0xFFFF00} ** 30}**30;
+const player: [30][30]u32 = [_][30]u32{[_]u32{0xFF00} ** 30} ** 30;
 
-var playerInput = ds.PlayerInput{.left = false, .right = false, .shoot = false};
+const enemy1: [30][30]u32 = [_][30]u32{[_]u32{0xFF0000} ** 30} ** 30;
+const enemy2: [30][30]u32 = [_][30]u32{[_]u32{0xAFFF00} ** 30} ** 30;
+const enemy3: [30][30]u32 = [_][30]u32{[_]u32{0xEFFF00} ** 30} ** 30;
+const enemies: [5][11][30][30]u32 = .{ .{enemy1} ** 11, .{enemy2} ** 11, .{enemy2} ** 11, .{enemy3} ** 11, .{enemy3} ** 11 };
 
-pub fn setPixel(x:u32, y:u32, color:u32) void{
-    buffer[(W*y)+x] = color;
+const projectile: [30][10]u32 = [_][10]u32{[_]u32{0xFFFFFF} ** 10} ** 30;
+
+var enemyPos = ds.Position{ .x = 0, .y = 400 };
+var playerPos = ds.Position{ .x = 0, .y = 100 };
+
+
+var playerInput = ds.PlayerInput{ .left = false, .right = false, .shoot = false };
+var foo: [4]u8 = .{ 4, 3, 2, 8 };
+
+pub fn clearBuffer() void {
+    for (0..buffer.len) |i| {
+        buffer[i] = backgroundColor;
+    }
 }
 
-pub fn drawSprite(x:u32, y:u32, comptime sizeX:u32, comptime sizeY:u32, sprite:[sizeX][sizeY]u32) void{
-    for (0.., sprite) |i, row|{
-        for (0.., row) |j, pixel|{
-            setPixel(@intCast(x+j), @intCast(y+i), pixel);
+pub fn setPixel(x: u32, y: u32, color: u32) void {
+    buffer[(W * y) + x] = color;
+}
+
+pub fn drawSprite(x: u32, y: u32, sprite: anytype) void {
+    for (0.., sprite) |i, row| {
+        for (0.., row) |j, pixel| {
+            setPixel(@intCast(x + j), @intCast(y + i), pixel);
         }
     }
+}
+
+pub fn addPlayerX(delta: f32) void {
+    playerPos.x += delta;
+    playerPos.x = std.math.clamp(playerPos.x, 0, @as(f32, W - player[0].len));
+}
+
+pub fn addEnemyX(delta: f32) bool {
+    enemyPos.x += delta;
+    const enemiesSize = enemies[0].len * 40;
+    const reachedEnd: bool = enemyPos.x < 0 or enemyPos.x > (W - enemiesSize);
+    enemyPos.x = std.math.clamp(enemyPos.x, 0, @as(f32, W - enemiesSize));
+    return reachedEnd;
 }
 
 pub fn main() void {
     try clearConsole();
     w.createWindow(W, H, &buffer);
+    var deltaTime: f32 = 0;
+    var enemyGoingLeft = false;
     while (w.tickWindow(&playerInput)) {
-        drawSprite(400,220,30,30, player);
-        drawSprite(400,20,30,30, enemy);
-        if(playerInput.left){
-            std.debug.print("pressed left", .{});
-        } else if(playerInput.right){
-            std.debug.print("pressed right", .{});
-        } else if(playerInput.shoot){
+        const startTime = std.time.microTimestamp();
+        clearBuffer();
+        drawSprite(@intFromFloat(playerPos.x), @intFromFloat(playerPos.y), player);
+        drawSprite(200, 299, projectile);
+        const eX: u32 = @intFromFloat(enemyPos.x);
+        const eY: u32 = @intFromFloat(enemyPos.y);
+        for (enemies, 0..) |row, y| {
+            for (row, 0..) |enemy, x| {
+                drawSprite(@intCast(eX + x * 40), @intCast(eY - y * 40), enemy);
+            }
+        }
+
+        if (playerInput.left) {
+            addPlayerX(-0.001 * deltaTime);
+        } else if (playerInput.right) {
+            addPlayerX(0.001 * deltaTime);
+        } else if (playerInput.shoot) {
             std.debug.print("pressed shoot", .{});
         }
+
+        var reachedEnd: bool = false;
+        if (enemyGoingLeft) {
+            reachedEnd = addEnemyX(-0.0001 * deltaTime);
+        } else {
+            reachedEnd = addEnemyX(0.0001 * deltaTime);
+        }
+        if (reachedEnd) {
+            std.debug.print("reached End", .{});
+            enemyPos.y -= 50;
+            enemyGoingLeft = !enemyGoingLeft;
+        }
         w.redraw();
+        deltaTime = @floatFromInt(std.time.microTimestamp() - startTime);
     }
 }
