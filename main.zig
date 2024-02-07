@@ -33,27 +33,26 @@ pub fn clearConsole() !void {
     }
 }
 
-const blockSize = 30
+const blockSize = 30;
+const blockOffset = 5;
 const W: u32 = 800;
 const H: u32 = 600;
 const backgroundColor = 0xFF;
 var buffer: [W * H]u32 = [1]u32{backgroundColor} ** (W * H);
 
-const player: [30][30]u32 = [_][30]u32{[_]u32{0xFF00} ** 30} ** 30;
+const player: [blockSize][blockSize]u32 = [_][blockSize]u32{[_]u32{0xFF00} ** blockSize} ** blockSize;
 
-const enemy1: [30][30]u32 = [_][30]u32{[_]u32{0xFF0000} ** 30} ** 30;
-const enemy2: [30][30]u32 = [_][30]u32{[_]u32{0xAFFF00} ** 30} ** 30;
-const enemy3: [30][30]u32 = [_][30]u32{[_]u32{0xEFFF00} ** 30} ** 30;
-const enemies: [5][11][30][30]u32 = .{ .{enemy1} ** 11, .{enemy2} ** 11, .{enemy2} ** 11, .{enemy3} ** 11, .{enemy3} ** 11 };
+const enemy1: [blockSize][blockSize]u32 = [_][blockSize]u32{[_]u32{0xFF0000} ** blockSize} ** blockSize;
+const enemy2: [blockSize][blockSize]u32 = [_][blockSize]u32{[_]u32{0xAFFF00} ** blockSize} ** blockSize;
+const enemy3: [blockSize][blockSize]u32 = [_][blockSize]u32{[_]u32{0xEFFF00} ** blockSize} ** blockSize;
+const enemies: [5][11][blockSize][blockSize]u32 = .{ .{enemy1} ** 11, .{enemy2} ** 11, .{enemy2} ** 11, .{enemy3} ** 11, .{enemy3} ** 11 };
 
-const projectile: [30][10]u32 = [_][10]u32{[_]u32{0xFFFFFF} ** 10} ** 30;
+const projectile: [blockSize][10]u32 = [_][10]u32{[_]u32{0xFFFFFF} ** 10} ** blockSize;
 
 var enemyPos = ds.Position{ .x = 0, .y = 400 };
 var playerPos = ds.Position{ .x = 0, .y = 100 };
 
-
 var playerInput = ds.PlayerInput{ .left = false, .right = false, .shoot = false };
-var foo: [4]u8 = .{ 4, 3, 2, 8 };
 
 pub fn clearBuffer() void {
     for (0..buffer.len) |i| {
@@ -80,7 +79,7 @@ pub fn addPlayerX(delta: f32) void {
 
 pub fn addEnemyX(delta: f32) bool {
     enemyPos.x += delta;
-    const enemiesSize = enemies[0].len * 40;
+    const enemiesSize = enemies[0].len * (blockSize + blockOffset);
     const reachedEnd: bool = enemyPos.x < 0 or enemyPos.x > (W - enemiesSize);
     enemyPos.x = std.math.clamp(enemyPos.x, 0, @as(f32, W - enemiesSize));
     return reachedEnd;
@@ -100,7 +99,7 @@ pub fn main() void {
         const eY: u32 = @intFromFloat(enemyPos.y);
         for (enemies, 0..) |row, y| {
             for (row, 0..) |enemy, x| {
-                drawSprite(@intCast(eX + x * 40), @intCast(eY - y * 40), enemy);
+                drawSprite(@intCast(eX + x * (blockSize + blockOffset)), @intCast(eY - y * (blockSize + blockOffset)), enemy);
             }
         }
 
@@ -120,7 +119,7 @@ pub fn main() void {
         }
         if (reachedEnd) {
             std.debug.print("reached End", .{});
-            enemyPos.y -= 50;
+            enemyPos.y -= (blockSize + blockOffset);
             enemyGoingLeft = !enemyGoingLeft;
         }
         w.redraw();
