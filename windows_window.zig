@@ -35,19 +35,19 @@ pub fn tickWindow(input: *ds.PlayerInput) bool {
     _ = w.TranslateMessage(&msg);
     _ = w.DispatchMessageA(&msg);
     if (msg.message == w.WM_KEYDOWN) {
-        if(msg.wParam == VK_H){
+        if (msg.wParam == VK_H) {
             input.*.left = true;
-        } else if(msg.wParam == VK_L){
+        } else if (msg.wParam == VK_L) {
             input.*.right = true;
-        }else if(msg.wParam == VK_SPACE){
+        } else if (msg.wParam == VK_SPACE) {
             input.*.shoot = true;
         }
     } else if (msg.message == w.WM_KEYUP) {
-        if(msg.wParam == VK_H){
+        if (msg.wParam == VK_H) {
             input.*.left = false;
-        } else if(msg.wParam == VK_L){
+        } else if (msg.wParam == VK_L) {
             input.*.right = false;
-        }else if(msg.wParam == VK_SPACE){
+        } else if (msg.wParam == VK_SPACE) {
             input.*.shoot = false;
         }
     }
