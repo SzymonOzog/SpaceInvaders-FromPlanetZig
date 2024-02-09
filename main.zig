@@ -45,9 +45,15 @@ const player: [blockSize][blockSize]u32 = [_][blockSize]u32{[_]u32{0xFF00} ** bl
 const enemy1: [blockSize][blockSize]u32 = [_][blockSize]u32{[_]u32{0xFF0000} ** blockSize} ** blockSize;
 const enemy2: [blockSize][blockSize]u32 = [_][blockSize]u32{[_]u32{0xAFFF00} ** blockSize} ** blockSize;
 const enemy3: [blockSize][blockSize]u32 = [_][blockSize]u32{[_]u32{0xEFFF00} ** blockSize} ** blockSize;
+
 const enemies: [5][11][blockSize][blockSize]u32 = .{ .{enemy1} ** 11, .{enemy2} ** 11, .{enemy2} ** 11, .{enemy3} ** 11, .{enemy3} ** 11 };
 
-const projectile: [blockSize][10]u32 = [_][10]u32{[_]u32{0xFFFFFF} ** 10} ** blockSize;
+var projectile: [blockSize][10]u32 = [_][10]u32{[_]u32{0xFFFFFF} ** 10} ** blockSize;
+const projectileSpeed: f32 = 0.001;
+const projectileSpawnDistance: f32 = blockSize;
+const shootCooldownMicro = 1e6;
+
+var projectiles: [100]?ds.Projectile = .{null} ** 100;
 
 var enemyPos = ds.Position{ .x = 0, .y = 400 };
 var playerPos = ds.Position{ .x = 0, .y = 100 };
@@ -67,10 +73,15 @@ pub fn setPixel(x: u32, y: u32, color: u32) void {
 pub fn drawSprite(x: u32, y: u32, sprite: anytype) void {
     for (0.., sprite) |i, row| {
         for (0.., row) |j, pixel| {
-            setPixel(@intCast(x + j), @intCast(y + i), pixel);
+            if (y + i < H and x + j < W) {
+                setPixel(@intCast(x + j), @intCast(y + i), pixel);
+            }
         }
     }
 }
+
+var enemyS: [blockSize * blockSize]u32 = .{0xFFFFFF} ** (blockSize * blockSize);
+const EnemySprite = ds.Sprite{ .sizeY = enemy1.len, .sizeX = enemy1[0].len, .pixels = &enemyS };
 
 pub fn addPlayerX(delta: f32) void {
     playerPos.x += delta;
@@ -85,16 +96,36 @@ pub fn addEnemyX(delta: f32) bool {
     return reachedEnd;
 }
 
+pub fn updateProjectiles(deltaTime: f32) void {
+    for (projectiles, 0..) |p, i| {
+        if (p) |_| {
+            projectiles[i].?.pos.y += deltaTime * projectileSpeed * projectiles[i].?.dir;
+            if (projectiles[i].?.pos.roundY() >= H) {
+                projectiles[i] = null;
+            }
+        }
+    }
+}
+
+pub fn addProjectile(proj: ds.Projectile) void {
+    for (projectiles, 0..) |p, i| {
+        if (p) |_| {} else {
+            projectiles[i] = proj;
+            break;
+        }
+    }
+}
+
 pub fn main() void {
     try clearConsole();
     w.createWindow(W, H, &buffer);
     var deltaTime: f32 = 0;
     var enemyGoingLeft = false;
+    var shootTime = std.time.microTimestamp();
     while (w.tickWindow(&playerInput)) {
         const startTime = std.time.microTimestamp();
         clearBuffer();
         drawSprite(@intFromFloat(playerPos.x), @intFromFloat(playerPos.y), player);
-        drawSprite(200, 299, projectile);
         const eX: u32 = @intFromFloat(enemyPos.x);
         const eY: u32 = @intFromFloat(enemyPos.y);
         for (enemies, 0..) |row, y| {
@@ -103,12 +134,19 @@ pub fn main() void {
             }
         }
 
+        for (projectiles) |pr| {
+            if (pr) |p| {
+                drawSprite(p.pos.roundX(), p.pos.roundY(), projectile);
+            }
+        }
+
         if (playerInput.left) {
             addPlayerX(-0.001 * deltaTime);
         } else if (playerInput.right) {
             addPlayerX(0.001 * deltaTime);
-        } else if (playerInput.shoot) {
-            std.debug.print("pressed shoot", .{});
+        } else if (playerInput.shoot and std.time.microTimestamp() - shootTime > shootCooldownMicro) {
+            addProjectile(ds.Projectile{ .pos = .{ .x = playerPos.x, .y = playerPos.y + projectileSpawnDistance }, .dir = 1 });
+            shootTime = std.time.microTimestamp();
         }
 
         var reachedEnd: bool = false;
@@ -122,6 +160,7 @@ pub fn main() void {
             enemyPos.y -= (blockSize + blockOffset);
             enemyGoingLeft = !enemyGoingLeft;
         }
+        updateProjectiles(deltaTime);
         w.redraw();
         deltaTime = @floatFromInt(std.time.microTimestamp() - startTime);
     }
