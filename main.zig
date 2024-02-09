@@ -40,25 +40,43 @@ const H: u32 = 600;
 const backgroundColor = 0xFF;
 var buffer: [W * H]u32 = [1]u32{backgroundColor} ** (W * H);
 
-const player: [blockSize][blockSize]u32 = [_][blockSize]u32{[_]u32{0xFF00} ** blockSize} ** blockSize;
+var playerSprite: [blockSize * blockSize]u32 = .{0xFF00} ** (blockSize * blockSize);
+var enemySprite1: [blockSize * blockSize]u32 = .{0xFF0000} ** (blockSize * blockSize);
+var enemySprite2: [blockSize * blockSize]u32 = .{0xAFFF00} ** (blockSize * blockSize);
+var enemySprite3: [blockSize * blockSize]u32 = .{0xEFFF00} ** (blockSize * blockSize);
+var projectileSprite: [blockSize * 10]u32 = .{0xFFFFFF} ** (10 * blockSize);
 
-const enemy1: [blockSize][blockSize]u32 = [_][blockSize]u32{[_]u32{0xFF0000} ** blockSize} ** blockSize;
-const enemy2: [blockSize][blockSize]u32 = [_][blockSize]u32{[_]u32{0xAFFF00} ** blockSize} ** blockSize;
-const enemy3: [blockSize][blockSize]u32 = [_][blockSize]u32{[_]u32{0xEFFF00} ** blockSize} ** blockSize;
+var playerInput = ds.PlayerInput{ .left = false, .right = false, .shoot = false };
 
-const enemies: [5][11][blockSize][blockSize]u32 = .{ .{enemy1} ** 11, .{enemy2} ** 11, .{enemy2} ** 11, .{enemy3} ** 11, .{enemy3} ** 11 };
+var player = ds.Object{ .pos = ds.Position{ .x = 0, .y = 100 }, .sprite = ds.Sprite{ .sizeX = blockSize, .sizeY = blockSize, .pixels = &playerSprite } };
 
-var projectile: [blockSize][10]u32 = [_][10]u32{[_]u32{0xFFFFFF} ** 10} ** blockSize;
+var enemies: [5][11]?ds.Object = .{.{null} ** 11} ** 5;
+var enemyStartPos = ds.Position{ .x = 0, .y = 400 };
+
+pub fn createEnemies() void {
+    for (enemies, 0..) |row, y| {
+        for (row, 0..) |_, x| {
+            const offsetX: f32 = @floatFromInt(x * (blockSize + blockOffset));
+            const offsetY: f32 = @floatFromInt(y * (blockSize + blockOffset));
+            const pos = ds.Position{ .x = enemyStartPos.x + offsetX, .y = enemyStartPos.y - offsetY };
+            var pixels: [*]u32 = undefined;
+            if (y < 1) {
+                pixels = &enemySprite1;
+            } else if (y < 3) {
+                pixels = &enemySprite2;
+            } else {
+                pixels = &enemySprite3;
+            }
+            enemies[y][x] = ds.Object{ .pos = pos, .sprite = ds.Sprite{ .sizeX = blockSize, .sizeY = blockSize, .pixels = pixels } };
+        }
+    }
+}
+
 const projectileSpeed: f32 = 0.001;
 const projectileSpawnDistance: f32 = blockSize;
 const shootCooldownMicro = 1e6;
 
 var projectiles: [100]?ds.Projectile = .{null} ** 100;
-
-var enemyPos = ds.Position{ .x = 0, .y = 400 };
-var playerPos = ds.Position{ .x = 0, .y = 100 };
-
-var playerInput = ds.PlayerInput{ .left = false, .right = false, .shoot = false };
 
 pub fn clearBuffer() void {
     for (0..buffer.len) |i| {
@@ -70,37 +88,73 @@ pub fn setPixel(x: u32, y: u32, color: u32) void {
     buffer[(W * y) + x] = color;
 }
 
-pub fn drawSprite(x: u32, y: u32, sprite: anytype) void {
-    for (0.., sprite) |i, row| {
-        for (0.., row) |j, pixel| {
+pub fn drawSprite(x: u32, y: u32, sprite: ds.Sprite) void {
+    for (0..sprite.sizeY) |i| {
+        for (0..sprite.sizeX) |j| {
             if (y + i < H and x + j < W) {
-                setPixel(@intCast(x + j), @intCast(y + i), pixel);
+                setPixel(@intCast(x + j), @intCast(y + i), sprite.getPixel(@intCast(j), @intCast(i)));
             }
         }
     }
 }
 
-var enemyS: [blockSize * blockSize]u32 = .{0xFFFFFF} ** (blockSize * blockSize);
-const EnemySprite = ds.Sprite{ .sizeY = enemy1.len, .sizeX = enemy1[0].len, .pixels = &enemyS };
-
+pub fn drawObject(o: ds.Object) void {
+    drawSprite(o.pos.roundX(), o.pos.roundY(), o.sprite);
+}
 pub fn addPlayerX(delta: f32) void {
-    playerPos.x += delta;
-    playerPos.x = std.math.clamp(playerPos.x, 0, @as(f32, W - player[0].len));
+    player.pos.x += delta;
+    const maxPos: f32 = @floatFromInt(W - player.sprite.sizeX);
+    player.pos.x = std.math.clamp(player.pos.x, 0, maxPos);
 }
 
 pub fn addEnemyX(delta: f32) bool {
-    enemyPos.x += delta;
-    const enemiesSize = enemies[0].len * (blockSize + blockOffset);
-    const reachedEnd: bool = enemyPos.x < 0 or enemyPos.x > (W - enemiesSize);
-    enemyPos.x = std.math.clamp(enemyPos.x, 0, @as(f32, W - enemiesSize));
-    return reachedEnd;
+    var maxX: u32 = 0;
+    var minX: u32 = W;
+    for (enemies, 0..) |row, y| {
+        for (row, 0..) |enemy, x| {
+            if (enemy) |e| {
+                enemies[y][x].?.pos.x += delta;
+                const maxPos: f32 = @floatFromInt(W - e.sprite.sizeX);
+                enemies[y][x].?.pos.x = std.math.clamp(enemies[y][x].?.pos.x, 0, maxPos);
+
+                if (maxX < enemies[y][x].?.pos.roundX() + e.sprite.sizeX) {
+                    maxX = enemies[y][x].?.pos.roundX() + e.sprite.sizeX;
+                }
+                if (minX > enemies[y][x].?.pos.roundX()) {
+                    minX = enemies[y][x].?.pos.roundX();
+                }
+            }
+        }
+    }
+    return minX < 0 or maxX >= W;
+}
+
+pub fn addEnemyY(delta: f32) bool {
+    var maxY: u32 = 0;
+    var minY: u32 = H;
+    for (enemies, 0..) |row, y| {
+        for (row, 0..) |enemy, x| {
+            if (enemy) |e| {
+                enemies[y][x].?.pos.y += delta;
+                const maxPos: f32 = @floatFromInt(H - e.sprite.sizeY);
+                enemies[y][x].?.pos.y = std.math.clamp(enemies[y][x].?.pos.y, 0, maxPos);
+                if (maxY < enemies[y][x].?.pos.roundY() + e.sprite.sizeY) {
+                    maxY = enemies[y][x].?.pos.roundY() + e.sprite.sizeY;
+                }
+                if (minY > enemies[y][x].?.pos.roundY()) {
+                    minY = enemies[y][x].?.pos.roundY();
+                }
+            }
+        }
+    }
+    return minY < 0 or maxY >= H;
 }
 
 pub fn updateProjectiles(deltaTime: f32) void {
     for (projectiles, 0..) |p, i| {
         if (p) |_| {
-            projectiles[i].?.pos.y += deltaTime * projectileSpeed * projectiles[i].?.dir;
-            if (projectiles[i].?.pos.roundY() >= H) {
+            projectiles[i].?.obj.pos.y += deltaTime * projectileSpeed * projectiles[i].?.dir;
+            if (projectiles[i].?.obj.pos.roundY() >= H) {
                 projectiles[i] = null;
             }
         }
@@ -122,21 +176,23 @@ pub fn main() void {
     var deltaTime: f32 = 0;
     var enemyGoingLeft = false;
     var shootTime = std.time.microTimestamp();
+    createEnemies();
+
     while (w.tickWindow(&playerInput)) {
         const startTime = std.time.microTimestamp();
         clearBuffer();
-        drawSprite(@intFromFloat(playerPos.x), @intFromFloat(playerPos.y), player);
-        const eX: u32 = @intFromFloat(enemyPos.x);
-        const eY: u32 = @intFromFloat(enemyPos.y);
-        for (enemies, 0..) |row, y| {
-            for (row, 0..) |enemy, x| {
-                drawSprite(@intCast(eX + x * (blockSize + blockOffset)), @intCast(eY - y * (blockSize + blockOffset)), enemy);
+        drawObject(player);
+        for (enemies) |row| {
+            for (row) |enemy| {
+                if (enemy) |e| {
+                    drawObject(e);
+                }
             }
         }
 
         for (projectiles) |pr| {
             if (pr) |p| {
-                drawSprite(p.pos.roundX(), p.pos.roundY(), projectile);
+                drawObject(p.obj);
             }
         }
 
@@ -145,7 +201,7 @@ pub fn main() void {
         } else if (playerInput.right) {
             addPlayerX(0.001 * deltaTime);
         } else if (playerInput.shoot and std.time.microTimestamp() - shootTime > shootCooldownMicro) {
-            addProjectile(ds.Projectile{ .pos = .{ .x = playerPos.x, .y = playerPos.y + projectileSpawnDistance }, .dir = 1 });
+            addProjectile(ds.Projectile{ .obj = ds.Object{ .pos = .{ .x = player.pos.x, .y = player.pos.y + projectileSpawnDistance }, .sprite = ds.Sprite{ .sizeX = 10, .sizeY = blockSize, .pixels = &projectileSprite } }, .dir = 1 });
             shootTime = std.time.microTimestamp();
         }
 
@@ -157,7 +213,7 @@ pub fn main() void {
         }
         if (reachedEnd) {
             std.debug.print("reached End", .{});
-            enemyPos.y -= (blockSize + blockOffset);
+            _ = addEnemyY(-blockSize + blockOffset);
             enemyGoingLeft = !enemyGoingLeft;
         }
         updateProjectiles(deltaTime);
