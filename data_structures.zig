@@ -1,5 +1,3 @@
-pub const Color = struct { r: u8, g: u8, b: u8 };
-
 pub const PlayerInput = struct { left: bool, right: bool, shoot: bool };
 
 pub const Position = struct {
