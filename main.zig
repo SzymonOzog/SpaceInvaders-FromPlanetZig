@@ -44,6 +44,7 @@ var playerSprite: [blockSize * blockSize]u32 = .{0xFF00} ** (blockSize * blockSi
 var enemySprite1: [blockSize * blockSize]u32 = .{0xFF0000} ** (blockSize * blockSize);
 var enemySprite2: [blockSize * blockSize]u32 = .{0xAFFF00} ** (blockSize * blockSize);
 var enemySprite3: [blockSize * blockSize]u32 = .{0xEFFF00} ** (blockSize * blockSize);
+var enemyDeathSprite: [blockSize * blockSize]u32 = .{0xFFFFFF} ** (blockSize * blockSize);
 var projectileSprite: [blockSize * 10]u32 = .{0xFFFFFF} ** (10 * blockSize);
 
 var playerInput = ds.PlayerInput{ .left = false, .right = false, .shoot = false };
@@ -51,6 +52,7 @@ var playerInput = ds.PlayerInput{ .left = false, .right = false, .shoot = false 
 var player = ds.Object{ .pos = ds.Position{ .x = 0, .y = 100 }, .sprite = ds.Sprite{ .sizeX = blockSize, .sizeY = blockSize, .pixels = &playerSprite } };
 
 var enemies: [5][11]?ds.Object = .{.{null} ** 11} ** 5;
+var deathMarkers: [100]?ds.DeathMarker = .{null} ** 100;
 var enemyStartPos = ds.Position{ .x = 10, .y = 400 };
 
 pub fn createEnemies() void {
@@ -170,6 +172,15 @@ pub fn addProjectile(proj: ds.Projectile) void {
     }
 }
 
+pub fn addDeathMarker(dm: ds.DeathMarker) void {
+    for (deathMarkers, 0..) |d, i| {
+        if (d) |_| {} else {
+            deathMarkers[i] = dm;
+            break;
+        }
+    }
+}
+
 pub fn updateCollision() void {
     for (projectiles, 0..) |pr, i| {
         if (pr) |p| {
@@ -177,6 +188,7 @@ pub fn updateCollision() void {
                 for (row, 0..) |enemy, x| {
                     if (enemy) |e| {
                         if (areColliding(e, p.obj)) {
+                            addDeathMarker(ds.DeathMarker{ .obj = ds.Object{ .pos = e.pos, .sprite = ds.Sprite{ .sizeX = blockSize, .sizeY = blockSize, .pixels = &enemyDeathSprite } }, .lifetime = 1e5, .creationTime = std.time.microTimestamp() });
                             projectiles[i] = null;
                             enemies[y][x] = null;
                         }
@@ -217,6 +229,15 @@ pub fn main() void {
         for (projectiles) |pr| {
             if (pr) |p| {
                 drawObject(p.obj);
+            }
+        }
+
+        for (deathMarkers, 0..) |dm, i| {
+            if (dm) |o| {
+                drawObject(o.obj);
+                if (std.time.microTimestamp() - o.creationTime > o.lifetime) {
+                    deathMarkers[i] = null;
+                }
             }
         }
 

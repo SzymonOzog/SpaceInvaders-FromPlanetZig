@@ -25,3 +25,4 @@ pub const Position = struct {
 };
 
 pub const Projectile = struct { obj: Object, dir: f32 };
+pub const DeathMarker = struct { obj: Object, lifetime: i64, creationTime: i64 };
