@@ -51,7 +51,7 @@ var playerInput = ds.PlayerInput{ .left = false, .right = false, .shoot = false 
 var player = ds.Object{ .pos = ds.Position{ .x = 0, .y = 100 }, .sprite = ds.Sprite{ .sizeX = blockSize, .sizeY = blockSize, .pixels = &playerSprite } };
 
 var enemies: [5][11]?ds.Object = .{.{null} ** 11} ** 5;
-var enemyStartPos = ds.Position{ .x = 0, .y = 400 };
+var enemyStartPos = ds.Position{ .x = 10, .y = 400 };
 
 pub fn createEnemies() void {
     for (enemies, 0..) |row, y| {
@@ -126,7 +126,7 @@ pub fn addEnemyX(delta: f32) bool {
             }
         }
     }
-    return minX < 0 or maxX >= W;
+    return minX <= 0 or maxX >= W;
 }
 
 pub fn addEnemyY(delta: f32) bool {
@@ -147,7 +147,7 @@ pub fn addEnemyY(delta: f32) bool {
             }
         }
     }
-    return minY < 0 or maxY >= H;
+    return minY <= 0 or maxY >= H;
 }
 
 pub fn updateProjectiles(deltaTime: f32) void {
