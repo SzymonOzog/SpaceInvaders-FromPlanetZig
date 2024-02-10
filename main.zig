@@ -23,6 +23,7 @@ var enemySprite2: [blockSize * blockSize]u32 = .{0xAFFF00} ** (blockSize * block
 var enemySprite3: [blockSize * blockSize]u32 = .{0xEFFF00} ** (blockSize * blockSize);
 var enemyDeathSprite: [blockSize * blockSize]u32 = .{0xFFFFFF} ** (blockSize * blockSize);
 var projectileSprite: [blockSize * 10]u32 = .{0xFFFFFF} ** (10 * blockSize);
+var mysteryShipSprite: [blockSize * blockSize]u32 = .{0xEFFFAA} ** (blockSize * blockSize);
 
 var playerInput = ds.PlayerInput{ .left = false, .right = false, .shoot = false };
 
@@ -35,9 +36,17 @@ const playerStart: ds.Position = ds.Position{ .x = 0, .y = 100 };
 var enemies: [5][11]?ds.Object = .{.{null} ** 11} ** 5;
 var deathMarkers: [100]?ds.DeathMarker = .{null} ** 100;
 var numEnemiesAlive: u32 = 0;
+var mysteryShip: ?ds.Object = null;
+const mysteryShipSpeed: f32 = 0.0003;
+const mysteryShipPoints: u32 = 150;
 
 pub fn respawnPlayer() void {
     player = ds.Object{ .pos = playerStart, .sprite = ds.Sprite{ .sizeX = blockSize, .sizeY = blockSize, .pixels = &playerSprite } };
+}
+
+pub fn spawnMysteryShip() void {
+    const offset: f32 = (enemies.len + 11) * enemyMoveDelta;
+    mysteryShip = ds.Object{ .pos = ds.Position{ .x = 0, .y = playerStart.y + offset }, .sprite = ds.Sprite{ .sizeX = blockSize, .sizeY = blockSize, .pixels = &mysteryShipSprite } };
 }
 
 pub fn createEnemies(round: u32) void {
@@ -187,6 +196,14 @@ pub fn updateCollision() void {
                     projectiles[i] = null;
                 }
             }
+            if (mysteryShip) |s| {
+                if (p.dir == 1 and areColliding(p.obj, s)) {
+                    addDeathMarker(ds.DeathMarker{ .obj = ds.Object{ .pos = s.pos, .sprite = ds.Sprite{ .sizeX = blockSize, .sizeY = blockSize, .pixels = &enemyDeathSprite } }, .lifetime = 1e5, .creationTime = std.time.microTimestamp() });
+                    mysteryShip = null;
+                    projectiles[i] = null;
+                    points += mysteryShipPoints;
+                }
+            }
         }
     }
 }
@@ -231,6 +248,8 @@ pub fn main() void {
     var lastEnemyMove = std.time.microTimestamp();
     var round: u32 = 0;
     var gameOver: bool = false;
+    var shotCount: u32 = 0;
+    var mysteryShipSpawn: bool = false;
     createEnemies(round);
     respawnPlayer();
 
@@ -282,8 +301,23 @@ pub fn main() void {
                 addPlayerX(playerSpeed * deltaTime);
             } else if (playerInput.shoot and std.time.microTimestamp() - shootTime > shootCooldownMicro) {
                 addProjectile(ds.Projectile{ .obj = ds.Object{ .pos = .{ .x = p.pos.x, .y = p.pos.y + projectileSpawnDistance }, .sprite = ds.Sprite{ .sizeX = 10, .sizeY = blockSize, .pixels = &projectileSprite } }, .dir = 1 });
+                shotCount += 1;
+                mysteryShipSpawn = (shotCount % 23) == 0;
+                std.debug.print("shot count = {d}\n", .{shotCount});
                 shootTime = std.time.microTimestamp();
             }
+        }
+        if (mysteryShip) |s| {
+            drawObject(s);
+            const newPos = s.pos.x + mysteryShipSpeed * deltaTime;
+            if (newPos > W) {
+                mysteryShip = null;
+            } else {
+                mysteryShip.?.pos.x = newPos;
+            }
+        } else if (mysteryShipSpawn) {
+            spawnMysteryShip();
+            mysteryShipSpawn = false;
         }
 
         if (std.time.microTimestamp() - lastEnemyMove > enemyMoveTime) {
