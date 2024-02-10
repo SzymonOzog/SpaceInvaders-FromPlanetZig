@@ -114,46 +114,37 @@ pub fn addPlayerX(delta: f32) void {
 }
 
 pub fn addEnemyX(delta: f32) bool {
-    var maxX: u32 = 0;
-    var minX: u32 = W;
+    var reachedEnd = false;
     for (enemies, 0..) |row, y| {
         for (row, 0..) |enemy, x| {
             if (enemy) |e| {
-                enemies[y][x].?.pos.x += delta;
+                const newPos: f32 = enemies[y][x].?.pos.x + delta;
                 const maxPos: f32 = @floatFromInt(W - e.sprite.sizeX);
-                enemies[y][x].?.pos.x = std.math.clamp(enemies[y][x].?.pos.x, 0, maxPos);
-
-                if (maxX < enemies[y][x].?.pos.roundX() + e.sprite.sizeX) {
-                    maxX = enemies[y][x].?.pos.roundX() + e.sprite.sizeX;
+                if (newPos + delta <= 0 or newPos + delta >= maxPos) {
+                    reachedEnd = true;
                 }
-                if (minX > enemies[y][x].?.pos.roundX()) {
-                    minX = enemies[y][x].?.pos.roundX();
-                }
+                enemies[y][x].?.pos.x = newPos;
             }
         }
     }
-    return minX <= 0 or maxX >= W;
+    return reachedEnd;
 }
 
 pub fn addEnemyY(delta: f32) bool {
-    var maxY: u32 = 0;
-    var minY: u32 = H;
+    var reachedEnd = false;
     for (enemies, 0..) |row, y| {
         for (row, 0..) |enemy, x| {
             if (enemy) |e| {
-                enemies[y][x].?.pos.y += delta;
+                const newPos: f32 = enemies[y][x].?.pos.y + delta;
                 const maxPos: f32 = @floatFromInt(H - e.sprite.sizeY);
-                enemies[y][x].?.pos.y = std.math.clamp(enemies[y][x].?.pos.y, 0, maxPos);
-                if (maxY < enemies[y][x].?.pos.roundY() + e.sprite.sizeY) {
-                    maxY = enemies[y][x].?.pos.roundY() + e.sprite.sizeY;
+                if (newPos + delta <= 0 or newPos + delta >= maxPos) {
+                    reachedEnd = true;
                 }
-                if (minY > enemies[y][x].?.pos.roundY()) {
-                    minY = enemies[y][x].?.pos.roundY();
-                }
+                enemies[y][x].?.pos.y = newPos;
             }
         }
     }
-    return minY <= 0 or maxY >= H;
+    return reachedEnd;
 }
 
 pub fn updateProjectiles(deltaTime: f32) void {
