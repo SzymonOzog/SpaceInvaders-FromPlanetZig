@@ -2,6 +2,9 @@ const std = @import("std");
 const ds = @import("data_structures.zig");
 const w = @import("windows_window.zig");
 
+var prng = std.rand.DefaultPrng.init(37);
+const rand = prng.random();
+
 const blockSize = 30;
 const blockOffset = 5;
 const enemyMoveDelta = blockSize + blockOffset;
@@ -27,11 +30,13 @@ var points: u32 = 0;
 
 var enemies: [5][11]?ds.Object = .{.{null} ** 11} ** 5;
 var deathMarkers: [100]?ds.DeathMarker = .{null} ** 100;
+var numEnemiesAlive: u32 = 0;
 
 pub fn createEnemies(round: u32) void {
     const enemyBlock = enemies.len + 10 - (round % 10);
     const initialOffset: f32 = @floatFromInt(enemyBlock * enemyMoveDelta);
     const enemyStartPos = ds.Position{ .y = player.pos.y + initialOffset, .x = 10 };
+    numEnemiesAlive = enemies.len * enemies[0].len;
     for (enemies, 0..) |row, y| {
         for (row, 0..) |_, x| {
             const offsetX: f32 = @floatFromInt(x * (blockSize + blockOffset));
@@ -123,9 +128,11 @@ pub fn addEnemyY(delta: f32) bool {
 pub fn updateProjectiles(deltaTime: f32) void {
     for (projectiles, 0..) |p, i| {
         if (p) |_| {
-            projectiles[i].?.obj.pos.y += deltaTime * projectileSpeed * projectiles[i].?.dir;
-            if (projectiles[i].?.obj.pos.roundY() >= H) {
+            const newPos = projectiles[i].?.obj.pos.y + deltaTime * projectileSpeed * projectiles[i].?.dir;
+            if (newPos >= H or newPos <= 0) {
                 projectiles[i] = null;
+            } else {
+                projectiles[i].?.obj.pos.y = newPos;
             }
         }
     }
@@ -150,19 +157,25 @@ pub fn addDeathMarker(dm: ds.DeathMarker) void {
 }
 
 pub fn updateCollision() void {
-    for (projectiles, 0..) |pr, i| {
+    outer: for (projectiles, 0..) |pr, i| {
         if (pr) |p| {
             for (enemies, 0..) |row, y| {
                 for (row, 0..) |enemy, x| {
                     if (enemy) |e| {
-                        if (areColliding(e, p.obj)) {
+                        if (p.dir == 1 and areColliding(e, p.obj)) {
                             addDeathMarker(ds.DeathMarker{ .obj = ds.Object{ .pos = e.pos, .sprite = ds.Sprite{ .sizeX = blockSize, .sizeY = blockSize, .pixels = &enemyDeathSprite } }, .lifetime = 1e5, .creationTime = std.time.microTimestamp() });
+                            numEnemiesAlive -= 1;
                             points += pointsByRow[y];
                             projectiles[i] = null;
                             enemies[y][x] = null;
+                            continue :outer;
                         }
                     }
                 }
+            }
+            if (p.dir == -1 and areColliding(p.obj, player)) {
+                std.debug.print("Player died", .{});
+                projectiles[i] = null;
             }
         }
     }
@@ -176,14 +189,22 @@ pub fn areColliding(o1: ds.Object, o2: ds.Object) bool {
 }
 
 pub fn areAnyEnemiesAlive() bool {
+    return numEnemiesAlive > 0;
+}
+
+pub fn shootEnemy(index: u32) void {
+    var currentIndex: u32 = 0;
     for (enemies) |row| {
         for (row) |enemy| {
-            if (enemy) |_| {
-                return true;
+            if (enemy) |e| {
+                if (currentIndex == index) {
+                    addProjectile(ds.Projectile{ .dir = -1, .obj = ds.Object{ .pos = .{ .x = e.pos.x, .y = e.pos.y }, .sprite = ds.Sprite{ .sizeX = 10, .sizeY = blockSize, .pixels = &projectileSprite } } });
+                    return;
+                }
+                currentIndex += 1;
             }
         }
     }
-    return false;
 }
 
 pub fn main() void {
@@ -238,6 +259,7 @@ pub fn main() void {
 
         if (std.time.microTimestamp() - lastEnemyMove > enemyMoveTime) {
             lastEnemyMove = std.time.microTimestamp();
+            shootEnemy(rand.intRangeAtMost(u32, 0, numEnemiesAlive - 1));
             var reachedEnd: bool = false;
             if (enemyGoingLeft) {
                 reachedEnd = addEnemyX(-enemyMoveDelta);
@@ -255,6 +277,7 @@ pub fn main() void {
         if (!areAnyEnemiesAlive()) {
             round += 1;
             createEnemies(round);
+            enemyGoingLeft = false;
         }
         deltaTime = @floatFromInt(std.time.microTimestamp() - startTime);
     }
