@@ -170,6 +170,30 @@ pub fn addProjectile(proj: ds.Projectile) void {
     }
 }
 
+pub fn updateCollision() void {
+    for (projectiles, 0..) |pr, i| {
+        if (pr) |p| {
+            for (enemies, 0..) |row, y| {
+                for (row, 0..) |enemy, x| {
+                    if (enemy) |e| {
+                        if (areColliding(e, p.obj)) {
+                            projectiles[i] = null;
+                            enemies[y][x] = null;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub fn areColliding(o1: ds.Object, o2: ds.Object) bool {
+    return o1.pos.roundX() < o2.pos.roundX() + o2.sprite.sizeX and
+        o1.pos.roundX() + o1.sprite.sizeX > o2.pos.roundX() and
+        o1.pos.roundY() < o2.pos.roundY() + o2.sprite.sizeY and
+        o1.pos.roundY() + o1.sprite.sizeY > o2.pos.roundY();
+}
+
 pub fn main() void {
     try clearConsole();
     w.createWindow(W, H, &buffer);
@@ -216,6 +240,7 @@ pub fn main() void {
             _ = addEnemyY(-blockSize + blockOffset);
             enemyGoingLeft = !enemyGoingLeft;
         }
+        updateCollision();
         updateProjectiles(deltaTime);
         w.redraw();
         deltaTime = @floatFromInt(std.time.microTimestamp() - startTime);
