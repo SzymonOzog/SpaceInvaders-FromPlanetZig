@@ -35,6 +35,8 @@ pub fn clearConsole() !void {
 
 const blockSize = 30;
 const blockOffset = 5;
+const pointsByRow: [5]u32 = .{ 30, 20, 20, 10, 10 };
+
 const W: u32 = 800;
 const H: u32 = 600;
 const backgroundColor = 0xFF;
@@ -50,6 +52,7 @@ var projectileSprite: [blockSize * 10]u32 = .{0xFFFFFF} ** (10 * blockSize);
 var playerInput = ds.PlayerInput{ .left = false, .right = false, .shoot = false };
 
 var player = ds.Object{ .pos = ds.Position{ .x = 0, .y = 100 }, .sprite = ds.Sprite{ .sizeX = blockSize, .sizeY = blockSize, .pixels = &playerSprite } };
+var points: u32 = 0;
 
 var enemies: [5][11]?ds.Object = .{.{null} ** 11} ** 5;
 var deathMarkers: [100]?ds.DeathMarker = .{null} ** 100;
@@ -189,6 +192,9 @@ pub fn updateCollision() void {
                     if (enemy) |e| {
                         if (areColliding(e, p.obj)) {
                             addDeathMarker(ds.DeathMarker{ .obj = ds.Object{ .pos = e.pos, .sprite = ds.Sprite{ .sizeX = blockSize, .sizeY = blockSize, .pixels = &enemyDeathSprite } }, .lifetime = 1e5, .creationTime = std.time.microTimestamp() });
+                            points += pointsByRow[y];
+                            std.debug.print("added {d} points, current = {d}", .{ pointsByRow[y], points });
+
                             projectiles[i] = null;
                             enemies[y][x] = null;
                         }
