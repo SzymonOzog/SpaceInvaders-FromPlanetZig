@@ -10,6 +10,7 @@ const pointsByRow: [5]u32 = .{ 30, 20, 20, 10, 10 };
 const W: u32 = 800;
 const H: u32 = 800;
 const backgroundColor = 0xFF;
+const playerSpeed: f32 = 0.001;
 var buffer: [W * H]u32 = [1]u32{backgroundColor} ** (W * H);
 
 var playerSprite: [blockSize * blockSize]u32 = .{0xFF00} ** (blockSize * blockSize);
@@ -227,9 +228,9 @@ pub fn main() void {
         }
 
         if (playerInput.left) {
-            addPlayerX(-0.001 * deltaTime);
+            addPlayerX(-playerSpeed * deltaTime);
         } else if (playerInput.right) {
-            addPlayerX(0.001 * deltaTime);
+            addPlayerX(playerSpeed * deltaTime);
         } else if (playerInput.shoot and std.time.microTimestamp() - shootTime > shootCooldownMicro) {
             addProjectile(ds.Projectile{ .obj = ds.Object{ .pos = .{ .x = player.pos.x, .y = player.pos.y + projectileSpawnDistance }, .sprite = ds.Sprite{ .sizeX = 10, .sizeY = blockSize, .pixels = &projectileSprite } }, .dir = 1 });
             shootTime = std.time.microTimestamp();
