@@ -5,10 +5,10 @@ const w = @import("windows_window.zig");
 const blockSize = 30;
 const blockOffset = 5;
 const enemyMoveDelta = blockSize + blockOffset;
-const enemyMoveTime = 1e6;
+const enemyMoveTime = 4e5;
 const pointsByRow: [5]u32 = .{ 30, 20, 20, 10, 10 };
 const W: u32 = 800;
-const H: u32 = 600;
+const H: u32 = 800;
 const backgroundColor = 0xFF;
 var buffer: [W * H]u32 = [1]u32{backgroundColor} ** (W * H);
 
@@ -26,9 +26,11 @@ var points: u32 = 0;
 
 var enemies: [5][11]?ds.Object = .{.{null} ** 11} ** 5;
 var deathMarkers: [100]?ds.DeathMarker = .{null} ** 100;
-var enemyStartPos = ds.Position{ .x = 10, .y = 400 };
 
-pub fn createEnemies() void {
+pub fn createEnemies(round: u32) void {
+    const enemyBlock = enemies.len + 10 - (round % 10);
+    const initialOffset: f32 = @floatFromInt(enemyBlock * enemyMoveDelta);
+    const enemyStartPos = ds.Position{ .y = player.pos.y + initialOffset, .x = 10 };
     for (enemies, 0..) |row, y| {
         for (row, 0..) |_, x| {
             const offsetX: f32 = @floatFromInt(x * (blockSize + blockOffset));
@@ -49,7 +51,7 @@ pub fn createEnemies() void {
 
 const projectileSpeed: f32 = 0.001;
 const projectileSpawnDistance: f32 = blockSize;
-const shootCooldownMicro = 1e6;
+const shootCooldownMicro = 1e5;
 
 var projectiles: [100]?ds.Projectile = .{null} ** 100;
 
@@ -105,8 +107,9 @@ pub fn addEnemyY(delta: f32) bool {
         for (row, 0..) |enemy, x| {
             if (enemy) |e| {
                 const newPos: f32 = enemies[y][x].?.pos.y + delta;
-                const maxPos: f32 = @floatFromInt(H - e.sprite.sizeY);
-                if (newPos + delta <= 0 or newPos + delta >= maxPos) {
+                const spriteSizeFloat: f32 = @floatFromInt(e.sprite.sizeY);
+                const maxPos: f32 = player.pos.y + spriteSizeFloat;
+                if (newPos <= maxPos) {
                     reachedEnd = true;
                 }
                 enemies[y][x].?.pos.y = newPos;
@@ -154,8 +157,6 @@ pub fn updateCollision() void {
                         if (areColliding(e, p.obj)) {
                             addDeathMarker(ds.DeathMarker{ .obj = ds.Object{ .pos = e.pos, .sprite = ds.Sprite{ .sizeX = blockSize, .sizeY = blockSize, .pixels = &enemyDeathSprite } }, .lifetime = 1e5, .creationTime = std.time.microTimestamp() });
                             points += pointsByRow[y];
-                            std.debug.print("added {d} points, current = {d}", .{ pointsByRow[y], points });
-
                             projectiles[i] = null;
                             enemies[y][x] = null;
                         }
@@ -173,17 +174,34 @@ pub fn areColliding(o1: ds.Object, o2: ds.Object) bool {
         o1.pos.roundY() + o1.sprite.sizeY > o2.pos.roundY();
 }
 
+pub fn areAnyEnemiesAlive() bool {
+    for (enemies) |row| {
+        for (row) |enemy| {
+            if (enemy) |_| {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 pub fn main() void {
     w.createWindow(W, H, &buffer);
     var deltaTime: f32 = 0;
     var enemyGoingLeft = false;
     var shootTime = std.time.microTimestamp();
     var lastEnemyMove = std.time.microTimestamp();
-    createEnemies();
+    var round: u32 = 0;
+    var gameOver: bool = false;
+    createEnemies(round);
 
     while (w.tickWindow(&playerInput)) {
         const startTime = std.time.microTimestamp();
+        w.redraw();
         clearBuffer();
+        if (gameOver) {
+            continue;
+        }
         drawObject(player);
         for (enemies) |row| {
             for (row) |enemy| {
@@ -227,13 +245,16 @@ pub fn main() void {
             }
             if (reachedEnd) {
                 std.debug.print("reached End", .{});
-                _ = addEnemyY(-enemyMoveDelta);
+                gameOver = addEnemyY(-enemyMoveDelta);
                 enemyGoingLeft = !enemyGoingLeft;
             }
         }
         updateCollision();
         updateProjectiles(deltaTime);
-        w.redraw();
+        if (!areAnyEnemiesAlive()) {
+            round += 1;
+            createEnemies(round);
+        }
         deltaTime = @floatFromInt(std.time.microTimestamp() - startTime);
     }
 }
