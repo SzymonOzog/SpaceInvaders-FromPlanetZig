@@ -17,6 +17,7 @@ const playerSpeed: f32 = 0.001;
 var buffer: [W * H]u32 = [1]u32{backgroundColor} ** (W * H);
 
 var playerSprite: [blockSize * blockSize]u32 = .{0xFF00} ** (blockSize * blockSize);
+var playerDeathSprite: [blockSize * blockSize]u32 = .{0xFFAAAA} ** (blockSize * blockSize);
 var enemySprite1: [blockSize * blockSize]u32 = .{0xFF0000} ** (blockSize * blockSize);
 var enemySprite2: [blockSize * blockSize]u32 = .{0xAFFF00} ** (blockSize * blockSize);
 var enemySprite3: [blockSize * blockSize]u32 = .{0xEFFF00} ** (blockSize * blockSize);
@@ -25,17 +26,24 @@ var projectileSprite: [blockSize * 10]u32 = .{0xFFFFFF} ** (10 * blockSize);
 
 var playerInput = ds.PlayerInput{ .left = false, .right = false, .shoot = false };
 
-var player = ds.Object{ .pos = ds.Position{ .x = 0, .y = 100 }, .sprite = ds.Sprite{ .sizeX = blockSize, .sizeY = blockSize, .pixels = &playerSprite } };
+var player: ?ds.Object = null;
+var playerDeathMarker: ?ds.DeathMarker = null;
 var points: u32 = 0;
+var lifes: u32 = 3;
+const playerStart: ds.Position = ds.Position{ .x = 0, .y = 100 };
 
 var enemies: [5][11]?ds.Object = .{.{null} ** 11} ** 5;
 var deathMarkers: [100]?ds.DeathMarker = .{null} ** 100;
 var numEnemiesAlive: u32 = 0;
 
+pub fn respawnPlayer() void {
+    player = ds.Object{ .pos = playerStart, .sprite = ds.Sprite{ .sizeX = blockSize, .sizeY = blockSize, .pixels = &playerSprite } };
+}
+
 pub fn createEnemies(round: u32) void {
     const enemyBlock = enemies.len + 10 - (round % 10);
     const initialOffset: f32 = @floatFromInt(enemyBlock * enemyMoveDelta);
-    const enemyStartPos = ds.Position{ .y = player.pos.y + initialOffset, .x = 10 };
+    const enemyStartPos = ds.Position{ .y = playerStart.y + initialOffset, .x = 10 };
     numEnemiesAlive = enemies.len * enemies[0].len;
     for (enemies, 0..) |row, y| {
         for (row, 0..) |_, x| {
@@ -85,9 +93,9 @@ pub fn drawObject(o: ds.Object) void {
     drawSprite(o.pos.roundX(), o.pos.roundY(), o.sprite);
 }
 pub fn addPlayerX(delta: f32) void {
-    player.pos.x += delta;
-    const maxPos: f32 = @floatFromInt(W - player.sprite.sizeX);
-    player.pos.x = std.math.clamp(player.pos.x, 0, maxPos);
+    player.?.pos.x += delta;
+    const maxPos: f32 = @floatFromInt(W - player.?.sprite.sizeX);
+    player.?.pos.x = std.math.clamp(player.?.pos.x, 0, maxPos);
 }
 
 pub fn addEnemyX(delta: f32) bool {
@@ -114,7 +122,7 @@ pub fn addEnemyY(delta: f32) bool {
             if (enemy) |e| {
                 const newPos: f32 = enemies[y][x].?.pos.y + delta;
                 const spriteSizeFloat: f32 = @floatFromInt(e.sprite.sizeY);
-                const maxPos: f32 = player.pos.y + spriteSizeFloat;
+                const maxPos: f32 = playerStart.y + spriteSizeFloat;
                 if (newPos <= maxPos) {
                     reachedEnd = true;
                 }
@@ -173,9 +181,11 @@ pub fn updateCollision() void {
                     }
                 }
             }
-            if (p.dir == -1 and areColliding(p.obj, player)) {
-                std.debug.print("Player died", .{});
-                projectiles[i] = null;
+            if (player) |pl| {
+                if (p.dir == -1 and areColliding(p.obj, pl)) {
+                    killPlayer();
+                    projectiles[i] = null;
+                }
             }
         }
     }
@@ -190,6 +200,12 @@ pub fn areColliding(o1: ds.Object, o2: ds.Object) bool {
 
 pub fn areAnyEnemiesAlive() bool {
     return numEnemiesAlive > 0;
+}
+
+pub fn killPlayer() void {
+    playerDeathMarker = ds.DeathMarker{ .creationTime = std.time.microTimestamp(), .lifetime = 1e6, .obj = ds.Object{ .pos = player.?.pos, .sprite = ds.Sprite{ .sizeY = blockSize, .sizeX = blockSize, .pixels = &playerDeathSprite } } };
+    player = null;
+    lifes -= 1;
 }
 
 pub fn shootEnemy(index: u32) void {
@@ -216,6 +232,7 @@ pub fn main() void {
     var round: u32 = 0;
     var gameOver: bool = false;
     createEnemies(round);
+    respawnPlayer();
 
     while (w.tickWindow(&playerInput)) {
         const startTime = std.time.microTimestamp();
@@ -224,7 +241,6 @@ pub fn main() void {
         if (gameOver) {
             continue;
         }
-        drawObject(player);
         for (enemies) |row| {
             for (row) |enemy| {
                 if (enemy) |e| {
@@ -247,14 +263,27 @@ pub fn main() void {
                 }
             }
         }
-
-        if (playerInput.left) {
-            addPlayerX(-playerSpeed * deltaTime);
-        } else if (playerInput.right) {
-            addPlayerX(playerSpeed * deltaTime);
-        } else if (playerInput.shoot and std.time.microTimestamp() - shootTime > shootCooldownMicro) {
-            addProjectile(ds.Projectile{ .obj = ds.Object{ .pos = .{ .x = player.pos.x, .y = player.pos.y + projectileSpawnDistance }, .sprite = ds.Sprite{ .sizeX = 10, .sizeY = blockSize, .pixels = &projectileSprite } }, .dir = 1 });
-            shootTime = std.time.microTimestamp();
+        if (playerDeathMarker) |dm| {
+            drawObject(dm.obj);
+            if (std.time.microTimestamp() - dm.creationTime > dm.lifetime) {
+                playerDeathMarker = null;
+                if (lifes > 0) {
+                    respawnPlayer();
+                } else {
+                    gameOver = true;
+                }
+            }
+        }
+        if (player) |p| {
+            drawObject(p);
+            if (playerInput.left) {
+                addPlayerX(-playerSpeed * deltaTime);
+            } else if (playerInput.right) {
+                addPlayerX(playerSpeed * deltaTime);
+            } else if (playerInput.shoot and std.time.microTimestamp() - shootTime > shootCooldownMicro) {
+                addProjectile(ds.Projectile{ .obj = ds.Object{ .pos = .{ .x = p.pos.x, .y = p.pos.y + projectileSpawnDistance }, .sprite = ds.Sprite{ .sizeX = 10, .sizeY = blockSize, .pixels = &projectileSprite } }, .dir = 1 });
+                shootTime = std.time.microTimestamp();
+            }
         }
 
         if (std.time.microTimestamp() - lastEnemyMove > enemyMoveTime) {
