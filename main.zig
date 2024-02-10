@@ -35,8 +35,9 @@ pub fn clearConsole() !void {
 
 const blockSize = 30;
 const blockOffset = 5;
+const enemyMoveDelta = blockSize + blockOffset;
+const enemyMoveTime = 1e6;
 const pointsByRow: [5]u32 = .{ 30, 20, 20, 10, 10 };
-
 const W: u32 = 800;
 const H: u32 = 600;
 const backgroundColor = 0xFF;
@@ -218,6 +219,7 @@ pub fn main() void {
     var deltaTime: f32 = 0;
     var enemyGoingLeft = false;
     var shootTime = std.time.microTimestamp();
+    var lastEnemyMove = std.time.microTimestamp();
     createEnemies();
 
     while (w.tickWindow(&playerInput)) {
@@ -256,16 +258,19 @@ pub fn main() void {
             shootTime = std.time.microTimestamp();
         }
 
-        var reachedEnd: bool = false;
-        if (enemyGoingLeft) {
-            reachedEnd = addEnemyX(-0.0001 * deltaTime);
-        } else {
-            reachedEnd = addEnemyX(0.0001 * deltaTime);
-        }
-        if (reachedEnd) {
-            std.debug.print("reached End", .{});
-            _ = addEnemyY(-blockSize + blockOffset);
-            enemyGoingLeft = !enemyGoingLeft;
+        if (std.time.microTimestamp() - lastEnemyMove > enemyMoveTime) {
+            lastEnemyMove = std.time.microTimestamp();
+            var reachedEnd: bool = false;
+            if (enemyGoingLeft) {
+                reachedEnd = addEnemyX(-enemyMoveDelta);
+            } else {
+                reachedEnd = addEnemyX(enemyMoveDelta);
+            }
+            if (reachedEnd) {
+                std.debug.print("reached End", .{});
+                _ = addEnemyY(-enemyMoveDelta);
+                enemyGoingLeft = !enemyGoingLeft;
+            }
         }
         updateCollision();
         updateProjectiles(deltaTime);
