@@ -86,9 +86,6 @@ pub fn drawBuffer(buffer: []u32) void {
             const hMap: u32 = @intFromFloat(@as(f32, @floatFromInt(y)) * @as(f32, @floatFromInt(height)) / @as(f32, @floatFromInt(he)));
             const inIdx = wMap + hMap * width;
             outBuffer[outIdx] = buffer[inIdx];
-            if (x < 5 and y < 9) {
-                std.debug.print("out {d} in {d} width {d} height {d} outwidth {d} outheight {d}\n", .{ outIdx, inIdx, width, height, wi, he });
-            }
         }
     }
 
