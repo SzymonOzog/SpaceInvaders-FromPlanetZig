@@ -14,6 +14,7 @@ const W: u32 = 800;
 const H: u32 = 800;
 const backgroundColor = 0xFF;
 const playerSpeed: f32 = 0.001;
+const bunkerOffset = (blockSize + blockOffset) * 5;
 var buffer: [W * H]u32 = [1]u32{backgroundColor} ** (W * H);
 
 var playerSprite: [blockSize * blockSize]u32 = .{0xFF00} ** (blockSize * blockSize);
@@ -39,6 +40,8 @@ var numEnemiesAlive: u32 = 0;
 var mysteryShip: ?ds.Object = null;
 const mysteryShipSpeed: f32 = 0.0003;
 const mysteryShipPoints: u32 = 150;
+
+var bunkers: [4]?ds.Bunker = .{null} ** 4;
 
 pub fn respawnPlayer() void {
     player = ds.Object{ .pos = playerStart, .sprite = ds.Sprite{ .sizeX = blockSize, .sizeY = blockSize, .pixels = &playerSprite } };
@@ -85,7 +88,9 @@ pub fn clearBuffer() void {
 }
 
 pub fn setPixel(x: u32, y: u32, color: u32) void {
-    buffer[(W * y) + x] = color;
+    if (color < 0x01000000) {
+        buffer[(W * y) + x] = color;
+    }
 }
 
 pub fn drawSprite(x: u32, y: u32, sprite: ds.Sprite) void {
@@ -194,6 +199,7 @@ pub fn updateCollision() void {
                 if (p.dir == -1 and areColliding(p.obj, pl)) {
                     killPlayer();
                     projectiles[i] = null;
+                    continue :outer;
                 }
             }
             if (mysteryShip) |s| {
@@ -202,6 +208,22 @@ pub fn updateCollision() void {
                     mysteryShip = null;
                     projectiles[i] = null;
                     points += mysteryShipPoints;
+                    continue :outer;
+                }
+            }
+            for (&bunkers) |*bunker| {
+                if (bunker.*) |*b| {
+                    for (&b.*.parts) |*part| {
+                        if (part.*) |*pt| {
+                            if (areColliding(p.obj, pt.*.obj)) {
+                                if (pt.*.onHit()) {
+                                    part.* = null;
+                                }
+                                projectiles[i] = null;
+                                continue :outer;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -240,7 +262,16 @@ pub fn shootEnemy(index: u32) void {
     }
 }
 
-pub fn main() void {
+pub fn spawnBunkers(allocator: std.mem.Allocator) !void {
+    for (0..bunkers.len) |i| {
+        bunkers[i] = try ds.Bunker.init(ds.Position{ .x = @floatFromInt(blockSize + blockOffset + (i) * bunkerOffset), .y = 200 }, blockSize, blockSize, .{&playerSprite} ** 12, allocator);
+    }
+}
+
+pub fn main() !void {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+
     w.createWindow(W, H, &buffer);
     var deltaTime: f32 = 0;
     var enemyGoingLeft = false;
@@ -252,6 +283,7 @@ pub fn main() void {
     var mysteryShipSpawn: bool = false;
     createEnemies(round);
     respawnPlayer();
+    try spawnBunkers(arena.allocator());
 
     while (w.tickWindow(&playerInput)) {
         const startTime = std.time.microTimestamp();
@@ -279,6 +311,15 @@ pub fn main() void {
                 drawObject(o.obj);
                 if (std.time.microTimestamp() - o.creationTime > o.lifetime) {
                     deathMarkers[i] = null;
+                }
+            }
+        }
+        for (bunkers) |bunker| {
+            if (bunker) |b| {
+                for (b.parts) |part| {
+                    if (part) |pt| {
+                        drawObject(pt.obj);
+                    }
                 }
             }
         }
