@@ -55,7 +55,10 @@ pub fn tickWindow(input: *ds.PlayerInput) bool {
 }
 
 pub fn drawBuffer(buffer: []u32) void {
-    const rect = w.RECT{ .left = 0, .top = 0, .right = @intCast(width), .bottom = @intCast(height) };
+    var rect = w.RECT{ .left = 0, .top = 0, .right = 0, .bottom = 0 };
+    _ = w.GetWindowRect(handle, &rect);
+    const W = rect.right - rect.left;
+    const H = rect.bottom - rect.top;
 
     var ps: w.PAINTSTRUCT = w.PAINTSTRUCT{
         .hdc = undefined,
@@ -67,18 +70,41 @@ pub fn drawBuffer(buffer: []u32) void {
     };
     const hdc = w.BeginPaint(handle, &ps);
 
-    const bInfoHeader = w.BITMAPINFOHEADER{ .biSize = @sizeOf(w.BITMAPINFOHEADER), .biWidth = @intCast(width), .biHeight = @intCast(height), .biPlanes = 1, .biBitCount = 32, .biCompression = 0, .biSizeImage = 0, .biClrUsed = 0, .biClrImportant = 0, .biYPelsPerMeter = 0, .biXPelsPerMeter = 0 };
+    const bInfoHeader = w.BITMAPINFOHEADER{ .biSize = @sizeOf(w.BITMAPINFOHEADER), .biWidth = W, .biHeight = H, .biPlanes = 1, .biBitCount = 32, .biCompression = 0, .biSizeImage = 0, .biClrUsed = 0, .biClrImportant = 0, .biYPelsPerMeter = 0, .biXPelsPerMeter = 0 };
 
     var bInfo = w.BITMAPINFO{ .bmiHeader = bInfoHeader, .bmiColors = undefined };
-    if (height != w.SetDIBitsToDevice(hdc, 0, 0, @intCast(width), @intCast(height), 0, 0, 0, @intCast(height), buffer.ptr, &bInfo, w.DIB_RGB_COLORS)) {
+
+    const allocator = std.heap.page_allocator;
+    const outBuffer: []u32 = allocator.alloc(u32, @intCast(W * H)) catch return;
+    defer allocator.free(outBuffer);
+    const he: u64 = @intCast(H);
+    const wi: u32 = @intCast(W);
+    for (0..he) |y| {
+        for (0..wi) |x| {
+            const outIdx = y * wi + x;
+            const wMap: u32 = @intFromFloat(@as(f32, @floatFromInt(x)) * @as(f32, @floatFromInt(width)) / @as(f32, @floatFromInt(wi)));
+            const hMap: u32 = @intFromFloat(@as(f32, @floatFromInt(y)) * @as(f32, @floatFromInt(height)) / @as(f32, @floatFromInt(he)));
+            const inIdx = wMap + hMap * width;
+            outBuffer[outIdx] = buffer[inIdx];
+            if (x < 5 and y < 9) {
+                std.debug.print("out {d} in {d} width {d} height {d} outwidth {d} outheight {d}\n", .{ outIdx, inIdx, width, height, wi, he });
+            }
+        }
+    }
+
+    if (height != w.SetDIBitsToDevice(hdc, 0, 0, @intCast(W), @intCast(H), 0, 0, 0, @intCast(W), outBuffer.ptr, &bInfo, w.DIB_RGB_COLORS)) {
         std.debug.print("\n {d}", .{w.GetLastError()});
     }
     if (w.EndPaint(handle, &ps) == 0) {}
 }
 
 pub fn redraw() void {
-    const rect = w.RECT{ .left = 0, .top = 0, .right = @intCast(width), .bottom = @intCast(height) };
-    if (w.InvalidateRect(handle, &rect, 0) == 0) {
+    var rect = w.RECT{ .left = 0, .top = 0, .right = 0, .bottom = 0 };
+    if (w.GetWindowRect(handle, &rect) == 0) {
+        std.debug.print("Error at GetWindowRect {d}", .{w.GetLastError()});
+    }
+    const invalidationRect = w.RECT{ .left = 0, .top = 0, .right = rect.right - rect.left, .bottom = rect.bottom - rect.top };
+    if (w.InvalidateRect(handle, &invalidationRect, 0) == 0) {
         std.debug.print("Error at InvalidateRect {d}", .{w.GetLastError()});
     }
 }
