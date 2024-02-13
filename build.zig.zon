@@ -1,0 +1,15 @@
+.{
+    .name ="Space Invaders (From Planet Zig)",
+    .paths = .{""},
+    .version = "0.0.1",
+     .dependencies = .{
+        .zigimg = .{
+            .url = "https://github.com/zigimg/zigimg/archive/2224f91ea4cf70f2254848657e308761b8cc8c5d.tar.gz",
+            .hash = "12207067e4892c48369415268648380859baa89c324748ae5bfda414a12868c9fc8b",
+        },
+        .zig_tracy = .{
+            .url = "https://github.com/nektro/zig-tracy/archive/f4c2de6ccae95f8f8a561653d35c078e80e4c7a8.tar.gz",
+            .hash = "12207067e4892c48369415268648380859baa89c324748ae5bfda414a12868c9fc8b",
+        },
+    },
+}  
