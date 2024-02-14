@@ -1,5 +1,7 @@
 const std = @import("std");
 const ds = @import("data_structures.zig");
+const config = @import("config");
+const tracy = @import("tracy.zig");
 const w = @cImport({
     @cInclude("windows.h");
 });
@@ -55,6 +57,10 @@ pub fn tickWindow(input: *ds.PlayerInput) bool {
 }
 
 pub fn drawBuffer(buffer: []u32) void {
+    if (config.tracy) {
+        const tr = tracy.trace(@src());
+        defer tr.end();
+    }
     var rect = w.RECT{ .left = 0, .top = 0, .right = 0, .bottom = 0 };
     _ = w.GetWindowRect(handle, &rect);
     const W = rect.right - rect.left;
@@ -74,23 +80,33 @@ pub fn drawBuffer(buffer: []u32) void {
 
     var bInfo = w.BITMAPINFO{ .bmiHeader = bInfoHeader, .bmiColors = undefined };
 
+    const startTime = std.time.microTimestamp();
     const allocator = std.heap.page_allocator;
     const outBuffer: []u32 = allocator.alloc(u32, @intCast(W * H)) catch return;
     defer allocator.free(outBuffer);
-    const he: u64 = @intCast(H);
+    const he: u32 = @intCast(H);
     const wi: u32 = @intCast(W);
-    for (0..he) |y| {
-        for (0..wi) |x| {
-            const outIdx = y * wi + x;
-            const wMap: u32 = @intFromFloat(@as(f32, @floatFromInt(x)) * @as(f32, @floatFromInt(width)) / @as(f32, @floatFromInt(wi)));
-            const hMap: u32 = @intFromFloat(@as(f32, @floatFromInt(y)) * @as(f32, @floatFromInt(height)) / @as(f32, @floatFromInt(he)));
-            const inIdx = wMap + hMap * width;
-            outBuffer[outIdx] = buffer[inIdx];
-        }
-    }
 
-    if (height != w.SetDIBitsToDevice(hdc, 0, 0, @intCast(W), @intCast(H), 0, 0, 0, @intCast(W), outBuffer.ptr, &bInfo, w.DIB_RGB_COLORS)) {
-        std.debug.print("\n {d}", .{w.GetLastError()});
+    const precision: u32 = 1024;
+    const wStep: u32 = (width * precision) / wi;
+    const hStep: u32 = (height * precision) / he;
+    var inY: u32 = 0;
+    var outY: u32 = 0;
+    for (0..he) |_| {
+        var inX: u32 = 0;
+        for (0..wi) |x| {
+            const inIdx: u32 = (inY / precision) * width + inX / precision;
+            outBuffer[outY + x] = buffer[inIdx];
+            inX += wStep;
+        }
+        outY += wi;
+        inY += hStep;
+    }
+    std.debug.print("upscale took {d}", .{std.time.microTimestamp() - startTime});
+
+    const bitsSet = w.SetDIBitsToDevice(hdc, 0, 0, @intCast(W), @intCast(H), 0, 0, 0, @intCast(H), outBuffer.ptr, &bInfo, w.DIB_RGB_COLORS);
+    if (H != bitsSet) {
+        std.debug.print("\n bits set = {d}, h = {d}", .{ bitsSet, H });
     }
     if (w.EndPaint(handle, &ps) == 0) {}
 }
@@ -106,9 +122,9 @@ pub fn redraw() void {
     }
 }
 
-pub fn createWindow(inWidth: u32, inHeight: u32, buffer: []u32) void {
-    width = inWidth;
-    height = inHeight;
+pub fn createWindow(bufferW: u32, bufferH: u32, buffer: []u32, windowUpsample: u32) void {
+    width = bufferW;
+    height = bufferH;
     scrBuffer = buffer;
     const name = "window";
     const wclass = w.WNDCLASSA{
@@ -127,7 +143,7 @@ pub fn createWindow(inWidth: u32, inHeight: u32, buffer: []u32) void {
         std.debug.print("Error at RegisterClass", .{});
     }
 
-    handle = w.CreateWindowExA(0, wclass.lpszClassName, wclass.lpszMenuName, w.WS_TILEDWINDOW, 200, 200, @intCast(width), @intCast(height), 0, 0, 0, undefined);
+    handle = w.CreateWindowExA(0, wclass.lpszClassName, wclass.lpszMenuName, w.WS_TILEDWINDOW, 200, 200, @intCast(width * windowUpsample), @intCast(height * windowUpsample), 0, 0, 0, undefined);
     if (handle == 0) {
         std.debug.print("Error at createaWindow", .{});
     }

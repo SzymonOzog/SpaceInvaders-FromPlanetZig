@@ -264,7 +264,7 @@ pub fn shootEnemy(index: u32) void {
 
 pub fn spawnBunkers(allocator: std.mem.Allocator) !void {
     for (0..bunkers.len) |i| {
-        bunkers[i] = try ds.Bunker.init(ds.Position{ .x = @floatFromInt(blockSize + blockOffset + (i) * bunkerOffset), .y = 200 }, blockSize, blockSize, .{&playerSprite} ** 12, allocator);
+        bunkers[i] = try ds.Bunker.init(ds.Position{ .x = @floatFromInt(blockSize + blockOffset + (i) * bunkerOffset), .y = 3 * (blockSize + blockOffset) }, blockSize, blockSize, .{&playerSprite} ** 12, allocator);
     }
 }
 
@@ -272,7 +272,7 @@ pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
 
-    w.createWindow(W, H, &buffer);
+    w.createWindow(W, H, &buffer, 4);
     var deltaTime: f32 = 0;
     var enemyGoingLeft = false;
     var shootTime = std.time.microTimestamp();
@@ -285,8 +285,8 @@ pub fn main() !void {
     respawnPlayer();
     try spawnBunkers(arena.allocator());
 
+    var startTime = std.time.microTimestamp();
     while (w.tickWindow(&playerInput)) {
-        const startTime = std.time.microTimestamp();
         w.redraw();
         clearBuffer();
         if (gameOver) {
@@ -384,5 +384,7 @@ pub fn main() !void {
             enemyGoingLeft = false;
         }
         deltaTime = @floatFromInt(std.time.microTimestamp() - startTime);
+        startTime = std.time.microTimestamp();
+        std.debug.print("delta time = {d}\n", .{deltaTime});
     }
 }
