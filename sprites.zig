@@ -24,12 +24,12 @@ pub fn init(allocator: std.mem.Allocator) !std.StringHashMap(ds.Sprite) {
     }
     try spriteMap.put("player", ds.Sprite{ .sheetX = 1, .sheetY = 49, .sizeX = 15, .sizeY = 7, .mask = null, .color = 0x00FF00 });
     try spriteMap.put("playerProjectile", ds.Sprite{ .sheetX = 51, .sheetY = 21, .sizeX = 3, .sizeY = 7, .mask = null, .color = 0xFFFFFF });
-    try spriteMap.put("playerDeath", ds.Sprite{ .sheetX = 19, .sheetY = 49, .sizeX = 15, .sizeY = 7, .mask = null, .color = 0x00FF00 });
-    try spriteMap.put("enemy1", ds.Sprite{ .sheetX = 1, .sheetY = 1, .sizeX = 15, .sizeY = 7, .mask = null, .color = 0xFFFFFF });
-    try spriteMap.put("enemy2", ds.Sprite{ .sheetX = 19, .sheetY = 1, .sizeX = 15, .sizeY = 7, .mask = null, .color = 0xFFFFFF });
-    try spriteMap.put("enemy3", ds.Sprite{ .sheetX = 37, .sheetY = 1, .sizeX = 15, .sizeY = 7, .mask = null, .color = 0xFFFFFF });
+    try spriteMap.put("playerDeath", ds.Sprite{ .sheetX = 19, .sheetY = 49, .sizeX = 15, .sizeY = 7, .mask = null, .color = 0x00FF00, .animations = 2, .animX = 18 });
+    try spriteMap.put("enemy1", ds.Sprite{ .sheetX = 1, .sheetY = 1, .sizeX = 15, .sizeY = 7, .mask = null, .color = 0xFFFFFF, .animations = 2, .animY = 9 });
+    try spriteMap.put("enemy2", ds.Sprite{ .sheetX = 19, .sheetY = 1, .sizeX = 15, .sizeY = 7, .mask = null, .color = 0xFFFFFF, .animations = 2, .animY = 9 });
+    try spriteMap.put("enemy3", ds.Sprite{ .sheetX = 37, .sheetY = 1, .sizeX = 15, .sizeY = 7, .mask = null, .color = 0xFFFFFF, .animations = 2, .animY = 9 });
     try spriteMap.put("enemyDeath", ds.Sprite{ .sheetX = 55, .sheetY = 1, .sizeX = 15, .sizeY = 7, .mask = null, .color = 0xFFFFFF });
-    try spriteMap.put("enemyProjectile", ds.Sprite{ .sheetX = 1, .sheetY = 21, .sizeX = 3, .sizeY = 7, .mask = null, .color = 0xFFFFFF });
+    try spriteMap.put("enemyProjectile", ds.Sprite{ .sheetX = 1, .sheetY = 21, .sizeX = 3, .sizeY = 7, .mask = null, .color = 0xFFFFFF, .animations = 4, .animX = 5 });
     try spriteMap.put("mysteryShip", ds.Sprite{ .sheetX = 1, .sheetY = 39, .sizeX = 15, .sizeY = 7, .mask = null, .color = 0xFF0000 });
     try spriteMap.put("bunker", ds.Sprite{ .sheetX = 47, .sheetY = 31, .sizeX = 21, .sizeY = 15, .mask = null, .color = 0x00FF00 });
     return spriteMap;

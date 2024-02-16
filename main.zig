@@ -10,7 +10,7 @@ const rand = prng.random();
 const blockSize = 8;
 const blockOffset = 2;
 const enemyMoveDelta = blockSize + blockOffset;
-const enemyMoveTime = 4e5;
+const worldStepTime = 4e5;
 const pointsByRow: [5]u32 = .{ 30, 20, 20, 10, 10 };
 const W: u32 = 224;
 const H: u32 = 256;
@@ -41,6 +41,7 @@ const mysteryShipPoints: u32 = 150;
 var bunkers: [4]?ds.Bunker = .{null} ** 4;
 
 var objectList: std.ArrayList(*ds.Object) = undefined;
+var spawnedObjects: u32 = 0;
 
 pub fn respawnPlayer() !void {
     player = ds.Object{ .pos = playerStart, .sprite = spriteMap.get("player").? };
@@ -101,7 +102,7 @@ pub fn setPixel(x: u32, y: u32, color: u32) void {
 pub fn drawSprite(x: u32, y: u32, sprite: ds.Sprite) void {
     for (0..sprite.sizeY) |i| {
         for (0..sprite.sizeX) |j| {
-            if (y + i < H and x + j < W and spriteSheet[((sprite.sheetY + sprite.sizeY - i) * spriteSheetW + sprite.sheetX + j)]) {
+            if (y + i < H and x + j < W and spriteSheet[((sprite.getCurrentSheetY() + sprite.sizeY - i) * spriteSheetW + sprite.getCurrentSheetX() + j)]) {
                 if (sprite.mask) |m| {
                     if (m[i * sprite.sizeX + j]) {
                         setPixel(@intCast(x + j), @intCast(y + i), sprite.color);
@@ -175,6 +176,7 @@ pub fn updateProjectiles(deltaTime: f32) void {
         if (p) |_| {
             const newPos = projectiles[i].?.obj.pos.y + deltaTime * projectileSpeed * projectiles[i].?.dir;
             if (newPos >= H or newPos <= 0) {
+                try unregisterObject(p.?.obj);
                 projectiles[i] = null;
             } else {
                 projectiles[i].?.obj.pos.y = newPos;
@@ -213,7 +215,9 @@ pub fn updateCollision() !void {
                             try addDeathMarker(ds.DeathMarker{ .obj = ds.Object{ .pos = e.pos, .sprite = spriteMap.get("enemyDeath").? }, .lifetime = 1e5, .creationTime = std.time.microTimestamp() });
                             numEnemiesAlive -= 1;
                             points += pointsByRow[y];
+                            try unregisterObject(p.obj);
                             projectiles[i] = null;
+                            try unregisterObject(e);
                             enemies[y][x] = null;
                             continue :outer;
                         }
@@ -223,6 +227,7 @@ pub fn updateCollision() !void {
             if (player) |pl| {
                 if (p.dir == -1 and areColliding(p.obj, pl)) {
                     try killPlayer();
+                    try unregisterObject(p.obj);
                     projectiles[i] = null;
                     continue :outer;
                 }
@@ -230,7 +235,9 @@ pub fn updateCollision() !void {
             if (mysteryShip) |s| {
                 if (p.dir == 1 and areColliding(p.obj, s)) {
                     try addDeathMarker(ds.DeathMarker{ .obj = ds.Object{ .pos = s.pos, .sprite = spriteMap.get("enemyDeath").? }, .lifetime = 1e5, .creationTime = std.time.microTimestamp() });
+                    try unregisterObject(s);
                     mysteryShip = null;
+                    try unregisterObject(p.obj);
                     projectiles[i] = null;
                     points += mysteryShipPoints;
                     continue :outer;
@@ -242,8 +249,10 @@ pub fn updateCollision() !void {
                         if (part.*) |*pt| {
                             if (areColliding(p.obj, pt.*.obj)) {
                                 if (pt.*.onHit()) {
+                                    try unregisterObject(pt.*.obj);
                                     part.* = null;
                                 }
+                                try unregisterObject(p.obj);
                                 projectiles[i] = null;
                                 continue :outer;
                             }
@@ -269,6 +278,7 @@ pub fn areAnyEnemiesAlive() bool {
 pub fn killPlayer() !void {
     playerDeathMarker = ds.DeathMarker{ .creationTime = std.time.microTimestamp(), .lifetime = 1e6, .obj = ds.Object{ .pos = player.?.pos, .sprite = spriteMap.get("playerDeath").? } };
     try registerObject(&playerDeathMarker.?.obj);
+    try unregisterObject(player.?);
     player = null;
     lifes -= 1;
 }
@@ -307,11 +317,16 @@ pub fn printScore(allocator: std.mem.Allocator) !void {
 
 pub fn registerObject(obj: *ds.Object) !void {
     try objectList.append(obj);
-    obj.index = objectList.items.len - 1;
+    obj.index = spawnedObjects;
+    spawnedObjects += 1;
 }
 
 pub fn unregisterObject(obj: ds.Object) !void {
-    try objectList.swapRemove(obj.index);
+    for (objectList.items, 0..) |o, i| {
+        if (obj.index == o.index) {
+            _ = objectList.swapRemove(i);
+        }
+    }
 }
 
 pub fn main() !void {
@@ -338,6 +353,7 @@ pub fn main() !void {
     var gameOver: bool = false;
     var shotCount: u32 = 0;
     var mysteryShipSpawn: bool = false;
+    var worldStep: u32 = 0;
 
     try createEnemies(round);
     try respawnPlayer();
@@ -358,6 +374,7 @@ pub fn main() !void {
         for (deathMarkers, 0..) |dm, i| {
             if (dm) |o| {
                 if (std.time.microTimestamp() - o.creationTime > o.lifetime) {
+                    try unregisterObject(o.obj);
                     deathMarkers[i] = null;
                 }
             }
@@ -365,6 +382,7 @@ pub fn main() !void {
 
         if (playerDeathMarker) |dm| {
             if (std.time.microTimestamp() - dm.creationTime > dm.lifetime) {
+                try unregisterObject(dm.obj);
                 playerDeathMarker = null;
                 if (lifes > 0) {
                     try respawnPlayer();
@@ -388,6 +406,7 @@ pub fn main() !void {
         if (mysteryShip) |s| {
             const newPos = s.pos.x + mysteryShipSpeed * deltaTime;
             if (newPos > W) {
+                try unregisterObject(s);
                 mysteryShip = null;
             } else {
                 mysteryShip.?.pos.x = newPos;
@@ -399,7 +418,11 @@ pub fn main() !void {
 
         try printScore(arena.allocator());
 
-        if (std.time.microTimestamp() - lastEnemyMove > enemyMoveTime) {
+        if (std.time.microTimestamp() - lastEnemyMove > worldStepTime) {
+            worldStep += 1;
+            for (objectList.items) |o| {
+                o.stepAnim(worldStep);
+            }
             lastEnemyMove = std.time.microTimestamp();
             try shootEnemy(rand.intRangeAtMost(u32, 0, numEnemiesAlive - 1));
             var reachedEnd: bool = false;

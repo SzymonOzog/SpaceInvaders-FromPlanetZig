@@ -1,9 +1,33 @@
 const std = @import("std");
 pub const PlayerInput = struct { left: bool, right: bool, shoot: bool };
 
-pub const Sprite = struct { sizeX: u32, sizeY: u32, sheetX: u32, sheetY: u32, color: u32, mask: ?[]bool };
+pub const Sprite = struct {
+    sizeX: u32,
+    sizeY: u32,
+    sheetX: u32,
+    sheetY: u32,
+    color: u32,
+    mask: ?[]bool,
+    currentAnim: u32 = 0,
+    animations: u32 = 1,
+    animX: u32 = 0,
+    animY: u32 = 0,
+    pub fn getCurrentSheetX(self: Sprite) u32 {
+        return self.sheetX + self.currentAnim * self.animX;
+    }
+    pub fn getCurrentSheetY(self: Sprite) u32 {
+        return self.sheetY + self.currentAnim * self.animY;
+    }
+};
 
-pub const Object = struct { pos: Position, sprite: Sprite, index: usize = undefined };
+pub const Object = struct {
+    pos: Position,
+    sprite: Sprite,
+    index: usize = undefined,
+    pub fn stepAnim(self: *Object, currentStep: u32) void {
+        self.sprite.currentAnim = currentStep % self.sprite.animations;
+    }
+};
 
 pub const Position = struct {
     x: f32,
