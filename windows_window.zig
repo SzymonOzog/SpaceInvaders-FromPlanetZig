@@ -80,7 +80,6 @@ pub fn drawBuffer(buffer: []u32) void {
 
     var bInfo = w.BITMAPINFO{ .bmiHeader = bInfoHeader, .bmiColors = undefined };
 
-    const startTime = std.time.microTimestamp();
     const allocator = std.heap.page_allocator;
     const outBuffer: []u32 = allocator.alloc(u32, @intCast(W * H)) catch return;
     defer allocator.free(outBuffer);
@@ -102,7 +101,6 @@ pub fn drawBuffer(buffer: []u32) void {
         outY += wi;
         inY += hStep;
     }
-    std.debug.print("upscale took {d}", .{std.time.microTimestamp() - startTime});
 
     const bitsSet = w.SetDIBitsToDevice(hdc, 0, 0, @intCast(W), @intCast(H), 0, 0, 0, @intCast(H), outBuffer.ptr, &bInfo, w.DIB_RGB_COLORS);
     if (H != bitsSet) {
