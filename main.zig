@@ -40,16 +40,20 @@ const mysteryShipPoints: u32 = 150;
 
 var bunkers: [4]?ds.Bunker = .{null} ** 4;
 
-pub fn respawnPlayer() void {
+var objectList: std.ArrayList(*ds.Object) = undefined;
+
+pub fn respawnPlayer() !void {
     player = ds.Object{ .pos = playerStart, .sprite = spriteMap.get("player").? };
+    try registerObject(&player.?);
 }
 
-pub fn spawnMysteryShip() void {
+pub fn spawnMysteryShip() !void {
     const offset: f32 = (enemies.len + 11) * enemyMoveDelta;
     mysteryShip = ds.Object{ .pos = ds.Position{ .x = 0, .y = playerStart.y + offset }, .sprite = spriteMap.get("mysteryShip").? };
+    try registerObject(&mysteryShip.?);
 }
 
-pub fn createEnemies(round: u32) void {
+pub fn createEnemies(round: u32) !void {
     const enemyBlock = enemies.len + 10 - (round % 10);
     const initialOffset: f32 = @floatFromInt(enemyBlock * enemyMoveDelta);
     const enemyStartPos = ds.Position{ .y = playerStart.y + initialOffset, .x = 10 };
@@ -69,6 +73,7 @@ pub fn createEnemies(round: u32) void {
             }
             enemies[y][x] = ds.Object{ .pos = pos, .sprite = sprite };
             offsetX += @floatFromInt(sprite.sizeX);
+            try registerObject(&enemies[y][x].?);
         }
         offsetY += @floatFromInt(sprite.sizeY + blockOffset);
         offsetX = 0;
@@ -178,32 +183,34 @@ pub fn updateProjectiles(deltaTime: f32) void {
     }
 }
 
-pub fn addProjectile(proj: ds.Projectile) void {
+pub fn addProjectile(proj: ds.Projectile) !void {
     for (projectiles, 0..) |p, i| {
         if (p) |_| {} else {
             projectiles[i] = proj;
+            try registerObject(&projectiles[i].?.obj);
             break;
         }
     }
 }
 
-pub fn addDeathMarker(dm: ds.DeathMarker) void {
+pub fn addDeathMarker(dm: ds.DeathMarker) !void {
     for (deathMarkers, 0..) |d, i| {
         if (d) |_| {} else {
             deathMarkers[i] = dm;
+            try registerObject(&deathMarkers[i].?.obj);
             break;
         }
     }
 }
 
-pub fn updateCollision() void {
+pub fn updateCollision() !void {
     outer: for (projectiles, 0..) |pr, i| {
         if (pr) |p| {
             for (enemies, 0..) |row, y| {
                 for (row, 0..) |enemy, x| {
                     if (enemy) |e| {
                         if (p.dir == 1 and areColliding(e, p.obj)) {
-                            addDeathMarker(ds.DeathMarker{ .obj = ds.Object{ .pos = e.pos, .sprite = spriteMap.get("enemyDeath").? }, .lifetime = 1e5, .creationTime = std.time.microTimestamp() });
+                            try addDeathMarker(ds.DeathMarker{ .obj = ds.Object{ .pos = e.pos, .sprite = spriteMap.get("enemyDeath").? }, .lifetime = 1e5, .creationTime = std.time.microTimestamp() });
                             numEnemiesAlive -= 1;
                             points += pointsByRow[y];
                             projectiles[i] = null;
@@ -215,14 +222,14 @@ pub fn updateCollision() void {
             }
             if (player) |pl| {
                 if (p.dir == -1 and areColliding(p.obj, pl)) {
-                    killPlayer();
+                    try killPlayer();
                     projectiles[i] = null;
                     continue :outer;
                 }
             }
             if (mysteryShip) |s| {
                 if (p.dir == 1 and areColliding(p.obj, s)) {
-                    addDeathMarker(ds.DeathMarker{ .obj = ds.Object{ .pos = s.pos, .sprite = spriteMap.get("enemyDeath").? }, .lifetime = 1e5, .creationTime = std.time.microTimestamp() });
+                    try addDeathMarker(ds.DeathMarker{ .obj = ds.Object{ .pos = s.pos, .sprite = spriteMap.get("enemyDeath").? }, .lifetime = 1e5, .creationTime = std.time.microTimestamp() });
                     mysteryShip = null;
                     projectiles[i] = null;
                     points += mysteryShipPoints;
@@ -259,19 +266,20 @@ pub fn areAnyEnemiesAlive() bool {
     return numEnemiesAlive > 0;
 }
 
-pub fn killPlayer() void {
+pub fn killPlayer() !void {
     playerDeathMarker = ds.DeathMarker{ .creationTime = std.time.microTimestamp(), .lifetime = 1e6, .obj = ds.Object{ .pos = player.?.pos, .sprite = spriteMap.get("playerDeath").? } };
+    try registerObject(&playerDeathMarker.?.obj);
     player = null;
     lifes -= 1;
 }
 
-pub fn shootEnemy(index: u32) void {
+pub fn shootEnemy(index: u32) !void {
     var currentIndex: u32 = 0;
     for (enemies) |row| {
         for (row) |enemy| {
             if (enemy) |e| {
                 if (currentIndex == index) {
-                    addProjectile(ds.Projectile{ .dir = -1, .obj = ds.Object{ .pos = .{ .x = e.pos.x, .y = e.pos.y }, .sprite = spriteMap.get("enemyProjectile").? } });
+                    try addProjectile(ds.Projectile{ .dir = -1, .obj = ds.Object{ .pos = .{ .x = e.pos.x, .y = e.pos.y }, .sprite = spriteMap.get("enemyProjectile").? } });
                     return;
                 }
                 currentIndex += 1;
@@ -283,6 +291,11 @@ pub fn shootEnemy(index: u32) void {
 pub fn spawnBunkers(allocator: std.mem.Allocator) !void {
     for (0..bunkers.len) |i| {
         bunkers[i] = try ds.Bunker.init(ds.Position{ .x = @floatFromInt(blockSize + blockOffset + (i) * bunkerOffset), .y = 3 * (blockSize + blockOffset) }, spriteMap.get("bunker").?, allocator);
+        for (&bunkers[i].?.parts) |*part| {
+            if (part.*) |*p| {
+                try registerObject(&p.obj);
+            }
+        }
     }
 }
 
@@ -292,9 +305,20 @@ pub fn printScore(allocator: std.mem.Allocator) !void {
     allocator.free(score);
 }
 
+pub fn registerObject(obj: *ds.Object) !void {
+    try objectList.append(obj);
+    obj.index = objectList.items.len - 1;
+}
+
+pub fn unregisterObject(obj: ds.Object) !void {
+    try objectList.swapRemove(obj.index);
+}
+
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
+
+    objectList = try std.ArrayList(*ds.Object).initCapacity(arena.allocator(), 100);
 
     const sheet = try zigimg.Image.fromFilePath(arena.allocator(), "SpriteSheet.png");
     spriteSheet = try arena.allocator().alloc(bool, sheet.width * sheet.height);
@@ -315,8 +339,8 @@ pub fn main() !void {
     var shotCount: u32 = 0;
     var mysteryShipSpawn: bool = false;
 
-    createEnemies(round);
-    respawnPlayer();
+    try createEnemies(round);
+    try respawnPlayer();
     try spawnBunkers(arena.allocator());
 
     var startTime = std.time.microTimestamp();
@@ -326,64 +350,42 @@ pub fn main() !void {
         if (gameOver) {
             continue;
         }
-        for (enemies) |row| {
-            for (row) |enemy| {
-                if (enemy) |e| {
-                    drawObject(e);
-                }
-            }
-        }
 
-        for (projectiles) |pr| {
-            if (pr) |p| {
-                drawObject(p.obj);
-            }
+        for (objectList.items) |o| {
+            drawObject(o.*);
         }
 
         for (deathMarkers, 0..) |dm, i| {
             if (dm) |o| {
-                drawObject(o.obj);
                 if (std.time.microTimestamp() - o.creationTime > o.lifetime) {
                     deathMarkers[i] = null;
                 }
             }
         }
-        for (bunkers) |bunker| {
-            if (bunker) |b| {
-                for (b.parts) |part| {
-                    if (part) |pt| {
-                        drawObject(pt.obj);
-                    }
-                }
-            }
-        }
+
         if (playerDeathMarker) |dm| {
-            drawObject(dm.obj);
             if (std.time.microTimestamp() - dm.creationTime > dm.lifetime) {
                 playerDeathMarker = null;
                 if (lifes > 0) {
-                    respawnPlayer();
+                    try respawnPlayer();
                 } else {
                     gameOver = true;
                 }
             }
         }
         if (player) |p| {
-            drawObject(p);
             if (playerInput.left) {
                 addPlayerX(-playerSpeed * deltaTime);
             } else if (playerInput.right) {
                 addPlayerX(playerSpeed * deltaTime);
             } else if (playerInput.shoot and std.time.microTimestamp() - shootTime > shootCooldownMicro) {
-                addProjectile(ds.Projectile{ .obj = ds.Object{ .pos = .{ .x = p.pos.x, .y = p.pos.y + projectileSpawnDistance }, .sprite = spriteMap.get("playerProjectile").? }, .dir = 1 });
+                try addProjectile(ds.Projectile{ .obj = ds.Object{ .pos = .{ .x = p.pos.x + @as(f32, @floatFromInt(player.?.sprite.sizeX)) / 2, .y = p.pos.y + projectileSpawnDistance }, .sprite = spriteMap.get("playerProjectile").? }, .dir = 1 });
                 shotCount += 1;
                 mysteryShipSpawn = (shotCount % 23) == 0;
-                std.debug.print("shot count = {d}\n", .{shotCount});
                 shootTime = std.time.microTimestamp();
             }
         }
         if (mysteryShip) |s| {
-            drawObject(s);
             const newPos = s.pos.x + mysteryShipSpeed * deltaTime;
             if (newPos > W) {
                 mysteryShip = null;
@@ -391,7 +393,7 @@ pub fn main() !void {
                 mysteryShip.?.pos.x = newPos;
             }
         } else if (mysteryShipSpawn) {
-            spawnMysteryShip();
+            try spawnMysteryShip();
             mysteryShipSpawn = false;
         }
 
@@ -399,7 +401,7 @@ pub fn main() !void {
 
         if (std.time.microTimestamp() - lastEnemyMove > enemyMoveTime) {
             lastEnemyMove = std.time.microTimestamp();
-            shootEnemy(rand.intRangeAtMost(u32, 0, numEnemiesAlive - 1));
+            try shootEnemy(rand.intRangeAtMost(u32, 0, numEnemiesAlive - 1));
             var reachedEnd: bool = false;
             if (enemyGoingLeft) {
                 reachedEnd = addEnemyX(-enemyMoveDelta);
@@ -412,14 +414,15 @@ pub fn main() !void {
                 enemyGoingLeft = !enemyGoingLeft;
             }
         }
-        updateCollision();
+        try updateCollision();
         updateProjectiles(deltaTime);
         if (!areAnyEnemiesAlive()) {
             round += 1;
-            createEnemies(round);
+            try createEnemies(round);
             enemyGoingLeft = false;
         }
         deltaTime = @floatFromInt(std.time.microTimestamp() - startTime);
         startTime = std.time.microTimestamp();
+        // std.debug.print("delta time {d} \n", .{deltaTime});
     }
 }

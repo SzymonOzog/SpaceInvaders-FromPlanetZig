@@ -3,7 +3,7 @@ pub const PlayerInput = struct { left: bool, right: bool, shoot: bool };
 
 pub const Sprite = struct { sizeX: u32, sizeY: u32, sheetX: u32, sheetY: u32, color: u32, mask: ?[]bool };
 
-pub const Object = struct { pos: Position, sprite: Sprite };
+pub const Object = struct { pos: Position, sprite: Sprite, index: usize = undefined };
 
 pub const Position = struct {
     x: f32,
