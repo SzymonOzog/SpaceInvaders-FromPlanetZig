@@ -13,6 +13,7 @@ pub fn init(allocator: std.mem.Allocator) !std.StringHashMap(ds.Sprite) {
     const xSize = 6;
     const ySize = 8;
     const width = 8;
+    try spriteMap.put(" ", ds.Sprite{ .sheetX = 0, .sheetY = 0, .sizeX = xSize, .sizeY = ySize, .mask = null, .color = 0xF00FF00 });
     for (symbols, 0..) |_, i| {
         const str = symbols[i .. i + 1];
         try spriteMap.put(str, ds.Sprite{ .sizeX = xSize, .sizeY = ySize, .sheetX = x, .sheetY = y, .mask = null, .color = 0xFFFFFF });

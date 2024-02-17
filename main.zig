@@ -136,9 +136,9 @@ pub fn drawText(text: []const u8, x: u32, y: u32) void {
     }
 }
 
-pub fn printScore(allocator: std.mem.Allocator) !void {
-    const score = try std.fmt.allocPrint(allocator, "{s}{d}", .{ "score", points });
-    drawText(score, 10, 242);
+pub fn printScore(allocator: std.mem.Allocator, x: u32, y: u32) !void {
+    const score = try std.fmt.allocPrint(allocator, "{s}{d}", .{ "score ", points });
+    drawText(score, x, y);
     allocator.free(score);
 }
 
@@ -380,6 +380,20 @@ pub fn main() !void {
         w.redraw();
         clearBuffer();
         if (gameOver) {
+            drawText("game over", 80, 140);
+            drawText("press space to play again", 30, 130);
+            try printScore(arena.allocator(), 80, 120);
+            if (playerInput.shoot) {
+                gameOver = false;
+                lifes = 3;
+                points = 0;
+                worldStep = 0;
+                try createEnemies(round);
+                try respawnPlayer();
+                try spawnBunkers(arena.allocator());
+                mysteryShip = null;
+                enemyGoingLeft = false;
+            }
             continue;
         }
 
@@ -432,7 +446,7 @@ pub fn main() !void {
             mysteryShipSpawn = false;
         }
 
-        try printScore(arena.allocator());
+        try printScore(arena.allocator(), 10, 242);
         drawLives();
 
         if (std.time.microTimestamp() - lastEnemyMove > worldStepTime) {
