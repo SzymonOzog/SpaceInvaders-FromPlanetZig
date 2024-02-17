@@ -3,6 +3,10 @@ const ds = @import("data_structures.zig");
 const w = @import("windows_window.zig");
 const zigimg = @import("zigimg");
 const sprites = @import("sprites.zig");
+const renderer = @import("renderer.zig");
+
+const W: u32 = 224;
+const H: u32 = 256;
 
 var prng = std.rand.DefaultPrng.init(37);
 const rand = prng.random();
@@ -16,12 +20,6 @@ var worldStepTime: u32 = maxWorldStepTime;
 var speedupAmount: u32 = 1e4;
 
 const pointsByRow: [5]u32 = .{ 30, 20, 20, 10, 10 };
-const W: u32 = 224;
-const H: u32 = 256;
-const backgroundColor = 0;
-const playerSpeed: f32 = 0.0001;
-const bunkerOffset = (blockSize + blockOffset) * 5;
-var buffer: [W * H]u32 = [1]u32{backgroundColor} ** (W * H);
 
 var spriteSheet: []bool = undefined;
 var spriteSheetW: u32 = undefined;
@@ -34,6 +32,8 @@ var playerDeathMarker: ?ds.DeathMarker = null;
 var points: u32 = 0;
 var lifes: u32 = 3;
 const playerStart: ds.Position = ds.Position{ .x = 0, .y = blockSize };
+const playerSpeed: f32 = 0.0001;
+const bunkerOffset = (blockSize + blockOffset) * 5;
 
 const projectileSpeed: f32 = 0.0001;
 const projectileSpawnDistance: f32 = blockSize;
@@ -93,36 +93,8 @@ pub fn createEnemies(round: u32) !void {
     }
 }
 
-pub fn clearBuffer() void {
-    for (0..buffer.len) |i| {
-        buffer[i] = backgroundColor;
-    }
-}
-
-pub fn setPixel(x: u32, y: u32, color: u32) void {
-    if (color < 0x01000000) {
-        buffer[(W * y) + x] = color;
-    }
-}
-
-pub fn drawSprite(x: u32, y: u32, sprite: ds.Sprite) void {
-    for (0..sprite.sizeY) |i| {
-        for (0..sprite.sizeX) |j| {
-            if (y + i < H and x + j < W and spriteSheet[((sprite.getCurrentSheetY() + sprite.sizeY - i) * spriteSheetW + sprite.getCurrentSheetX() + j)]) {
-                if (sprite.mask) |m| {
-                    if (m[i * sprite.sizeX + j]) {
-                        setPixel(@intCast(x + j), @intCast(y + i), sprite.color);
-                    }
-                } else {
-                    setPixel(@intCast(x + j), @intCast(y + i), sprite.color);
-                }
-            }
-        }
-    }
-}
-
 pub fn drawObject(o: ds.Object) void {
-    drawSprite(o.pos.roundX(), o.pos.roundY(), o.sprite);
+    renderer.drawSprite(o.pos.roundX(), o.pos.roundY(), o.sprite);
 }
 
 pub fn drawText(text: []const u8, x: u32, y: u32) void {
@@ -130,7 +102,7 @@ pub fn drawText(text: []const u8, x: u32, y: u32) void {
     for (text) |c| {
         const str: [1]u8 = .{c};
         if (spriteMap.get(&str)) |s| {
-            drawSprite(cursor, y, s);
+            renderer.drawSprite(cursor, y, s);
             cursor += s.sizeX;
         }
     }
@@ -148,7 +120,7 @@ pub fn drawLives() void {
     const letterSprite = spriteMap.get("p").?;
     for (0..lifes) |i| {
         const offset: u32 = @as(u32, @intCast(i)) * playerSprite.sizeX + 5 * letterSprite.sizeX;
-        drawSprite(100 + offset, 242, playerSprite);
+        renderer.drawSprite(100 + offset, 242, playerSprite);
     }
 }
 
@@ -360,7 +332,8 @@ pub fn main() !void {
     }
     spriteMap = try sprites.init(arena.allocator());
 
-    w.createWindow(W, H, &buffer, 4);
+    try renderer.init(W, H, spriteMap, spriteSheet, spriteSheetW, arena.allocator());
+    w.createWindow(W, H, renderer.buffer, 4);
     var deltaTime: f32 = 0;
     var enemyGoingLeft = false;
     var shootTime = std.time.microTimestamp();
@@ -378,7 +351,7 @@ pub fn main() !void {
     var startTime = std.time.microTimestamp();
     while (w.tickWindow(&playerInput)) {
         w.redraw();
-        clearBuffer();
+        renderer.clearBuffer();
         if (gameOver) {
             drawText("game over", 80, 140);
             drawText("press space to play again", 30, 130);
