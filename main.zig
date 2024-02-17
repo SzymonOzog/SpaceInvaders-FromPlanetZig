@@ -332,7 +332,7 @@ pub fn main() !void {
     }
     spriteMap = try sprites.init(arena.allocator());
 
-    try renderer.init(W, H, spriteMap, spriteSheet, spriteSheetW, arena.allocator());
+    try renderer.init(W, H, spriteSheet, spriteSheetW, arena.allocator());
     w.createWindow(W, H, renderer.buffer, 4);
     var deltaTime: f32 = 0;
     var enemyGoingLeft = false;

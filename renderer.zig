@@ -6,7 +6,6 @@ var H: u32 = undefined;
 const backgroundColor = 0;
 pub var buffer: []u32 = undefined;
 
-var spriteMap: std.StringHashMap(ds.Sprite) = undefined;
 var spriteSheet: []bool = undefined;
 var spriteSheetW: u32 = undefined;
 
@@ -38,13 +37,12 @@ pub fn drawSprite(x: u32, y: u32, sprite: ds.Sprite) void {
     }
 }
 
-pub fn init(width: u32, height: u32, inSpriteMap: std.StringHashMap(ds.Sprite), inSpriteSheet: []bool, inSpriteSheetW: u32, allocator: std.mem.Allocator) !void {
+pub fn init(width: u32, height: u32, inSpriteSheet: []bool, inSpriteSheetW: u32, allocator: std.mem.Allocator) !void {
     const buf = try allocator.alloc(u32, width * height);
     @memset(buf, backgroundColor);
     W = width;
     H = height;
     buffer = buf;
     spriteSheet = inSpriteSheet;
-    spriteMap = inSpriteMap;
     spriteSheetW = inSpriteSheetW;
 }
