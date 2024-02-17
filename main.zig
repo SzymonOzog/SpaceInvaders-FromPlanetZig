@@ -9,8 +9,12 @@ const rand = prng.random();
 
 const blockSize = 8;
 const blockOffset = 2;
-const enemyMoveDelta = blockSize + blockOffset;
-const worldStepTime = 4e5;
+const enemyMoveDeltaX = blockOffset;
+const enemyMoveDeltaY = blockSize + blockOffset;
+const maxWorldStepTime: u32 = 1e6;
+var worldStepTime: u32 = maxWorldStepTime;
+var speedupAmount: u32 = 1e4;
+
 const pointsByRow: [5]u32 = .{ 30, 20, 20, 10, 10 };
 const W: u32 = 224;
 const H: u32 = 256;
@@ -49,14 +53,14 @@ pub fn respawnPlayer() !void {
 }
 
 pub fn spawnMysteryShip() !void {
-    const offset: f32 = (enemies.len + 11) * enemyMoveDelta;
+    const offset: f32 = (enemies.len + 11) * enemyMoveDeltaY;
     mysteryShip = ds.Object{ .pos = ds.Position{ .x = 0, .y = playerStart.y + offset }, .sprite = spriteMap.get("mysteryShip").? };
     try registerObject(&mysteryShip.?);
 }
 
 pub fn createEnemies(round: u32) !void {
     const enemyBlock = enemies.len + 10 - (round % 10);
-    const initialOffset: f32 = @floatFromInt(enemyBlock * enemyMoveDelta);
+    const initialOffset: f32 = @floatFromInt(enemyBlock * enemyMoveDeltaY);
     const enemyStartPos = ds.Position{ .y = playerStart.y + initialOffset, .x = 10 };
     numEnemiesAlive = enemies.len * enemies[0].len;
     var offsetX: f32 = 0;
@@ -218,6 +222,7 @@ pub fn updateCollision() !void {
                             try unregisterObject(p.obj);
                             projectiles[i] = null;
                             try unregisterObject(e);
+                            worldStepTime -= speedupAmount;
                             enemies[y][x] = null;
                             continue :outer;
                         }
@@ -427,13 +432,13 @@ pub fn main() !void {
             try shootEnemy(rand.intRangeAtMost(u32, 0, numEnemiesAlive - 1));
             var reachedEnd: bool = false;
             if (enemyGoingLeft) {
-                reachedEnd = addEnemyX(-enemyMoveDelta);
+                reachedEnd = addEnemyX(-enemyMoveDeltaX);
             } else {
-                reachedEnd = addEnemyX(enemyMoveDelta);
+                reachedEnd = addEnemyX(enemyMoveDeltaX);
             }
             if (reachedEnd) {
                 std.debug.print("reached End", .{});
-                gameOver = addEnemyY(-enemyMoveDelta);
+                gameOver = addEnemyY(-enemyMoveDeltaY);
                 enemyGoingLeft = !enemyGoingLeft;
             }
         }
@@ -441,6 +446,7 @@ pub fn main() !void {
         updateProjectiles(deltaTime);
         if (!areAnyEnemiesAlive()) {
             round += 1;
+            worldStepTime = maxWorldStepTime;
             try createEnemies(round);
             enemyGoingLeft = false;
         }
