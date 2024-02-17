@@ -5,6 +5,15 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     const exe = b.addExecutable(.{ .name = "main", .root_source_file = .{ .path = "main.zig" }, .target = b.host, .optimize = optimize });
+
+    const pythonBindings = b.addSharedLibrary(.{
+        .name = "python_bindings",
+        .root_source_file = .{ .path = "python_bindings.zig" },
+        .target = target,
+        .optimize = optimize,
+        .version = .{ .major = 1, .minor = 0, .patch = 0 },
+    });
+
     exe.linkLibC();
     exe.linkSystemLibrary("gdi32");
     const zigimg = b.dependency("zigimg", .{
@@ -13,6 +22,7 @@ pub fn build(b: *std.Build) void {
     });
     exe.root_module.addImport("zigimg", zigimg.module("zigimg"));
 
+    pythonBindings.root_module.addImport("zigimg", zigimg.module("zigimg"));
     const tracy = b.option([]const u8, "tracy", "When tracy path is passed in will run with tracing");
 
     if (tracy) |path| {
@@ -37,6 +47,7 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addOptions("config", options);
 
     b.installArtifact(exe);
+    b.installArtifact(pythonBindings);
     const run_exe = b.addRunArtifact(exe);
 
     const run_step = b.step("run", "run the app");
