@@ -44,6 +44,8 @@ var projectiles: [100]?ds.Projectile = .{null} ** 100;
 var enemies: [5][11]?ds.Object = .{.{null} ** 11} ** 5;
 var deathMarkers: [100]?ds.DeathMarker = .{null} ** 100;
 var numEnemiesAlive: u32 = 0;
+const maxShootProbability: u32 = 60;
+const minShootProbability: u32 = 5;
 var mysteryShip: ?ds.Object = null;
 const mysteryShipSpeed: f32 = 0.00003;
 const mysteryShipPoints: u32 = 150;
@@ -288,16 +290,15 @@ pub fn killPlayer() !void {
     lifes -= 1;
 }
 
-pub fn shootEnemy(index: u32) !void {
-    var currentIndex: u32 = 0;
+pub fn shootEnemy() !void {
+    const shootProbability: u32 = std.math.clamp(numEnemiesAlive, minShootProbability, maxShootProbability);
     for (enemies) |row| {
         for (row) |enemy| {
             if (enemy) |e| {
-                if (currentIndex == index) {
+                if (rand.intRangeAtMost(u32, 0, shootProbability) == 0) {
                     try addProjectile(ds.Projectile{ .dir = -1, .obj = ds.Object{ .pos = .{ .x = e.pos.x, .y = e.pos.y }, .sprite = spriteMap.get("enemyProjectile").? } });
                     return;
                 }
-                currentIndex += 1;
             }
         }
     }
@@ -429,7 +430,7 @@ pub fn main() !void {
                 o.stepAnim(worldStep);
             }
             lastEnemyMove = std.time.microTimestamp();
-            try shootEnemy(rand.intRangeAtMost(u32, 0, numEnemiesAlive - 1));
+            try shootEnemy();
             var reachedEnd: bool = false;
             if (enemyGoingLeft) {
                 reachedEnd = addEnemyX(-enemyMoveDeltaX);
