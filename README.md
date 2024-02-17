@@ -1,5 +1,5 @@
 # Space Invaders (from planet Zig)
-This is a recreation of the classical game Space Invaders, made as a simple exercise to learn Zig
+This is a recreation of the classical game Space Invaders, made as a simple exercise to learn Zig, uses no external graphics libraries, everyting is rendered by hand. 
 Currently only working on windows 
 To run just clone the repo and execute 
 ```
