@@ -105,7 +105,6 @@ pub fn spawnMysteryShip() !void {
 }
 
 fn createEnemies() !void {
-    std.debug.print("create enemies \n", .{});
     const enemyBlock = enemies.len + 10 - (round % 10);
     const initialOffset: f32 = @floatFromInt(enemyBlock * enemyMoveDeltaY);
     const enemyStartPos = ds.Position{ .y = playerStart.y + initialOffset, .x = 10 };
@@ -125,12 +124,6 @@ fn createEnemies() !void {
             }
             enemies[y][x] = ds.Object{ .pos = pos, .sprite = sprite };
             offsetX += @floatFromInt(sprite.sizeX);
-            if (enemies[y][x]) |_| {
-                std.debug.print("is valid", .{});
-            } else {
-                std.debug.print("is NOT valid", .{});
-            }
-
             try registerObject(&enemies[y][x].?);
         }
         offsetY += @floatFromInt(sprite.sizeY + blockOffset);
@@ -366,7 +359,6 @@ pub fn init(inAllocator: std.mem.Allocator) !void {
     allocator = inAllocator;
 
     objectList = try std.ArrayList(*ds.Object).initCapacity(allocator, 100);
-    std.debug.print("\ninitialized object list, capacity = {d}\n", .{objectList.capacity});
 
     const sheet = try zigimg.Image.fromFilePath(allocator, "SpriteSheet.png");
     spriteSheet = try allocator.alloc(bool, sheet.width * sheet.height);
@@ -459,7 +451,6 @@ pub fn advanceFrame(playerInput: ds.PlayerInput) !void {
             reachedEnd = addEnemyX(enemyMoveDeltaX);
         }
         if (reachedEnd) {
-            std.debug.print("reached End", .{});
             gameOver = addEnemyY(-enemyMoveDeltaY);
             enemyGoingLeft = !enemyGoingLeft;
         }

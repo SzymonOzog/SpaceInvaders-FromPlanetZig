@@ -58,7 +58,6 @@ pub const BunkerPart = struct {
         var prng = std.rand.DefaultPrng.init(37);
         const rand = prng.random();
         self.*.damage += 1;
-        std.debug.print("part hit damage {d}", .{self.*.damage});
         var destroyed: u32 = 0;
 
         const size = self.obj.sprite.sizeX * self.obj.sprite.sizeY;
@@ -81,7 +80,6 @@ pub const Bunker = struct {
         var ret = Bunker{ .parts = undefined };
         const stepX: u32 = sprite.sizeX / bW;
         const stepY: u32 = sprite.sizeY / bH;
-        std.debug.print("creating step = {d}/{d} \n ", .{ stepX, stepY });
         for (0..bH) |y| {
             for (0..bW) |x| {
                 const i = y * bW + x;
@@ -92,12 +90,10 @@ pub const Bunker = struct {
                         ret.parts[i] = null;
                     } else {
                         var partSprite = Sprite{ .sizeY = stepY, .sizeX = stepX * 2, .sheetX = sprite.sheetX + @as(u32, @intCast(x)) * stepX, .sheetY = sprite.sheetY + (bH - @as(u32, @intCast(y)) - 1) * stepY, .color = sprite.color, .mask = null };
-                        std.debug.print("created size = {d}/{d}, sheet = {d}/{d}, offset = {d}/{d} \n ", .{ partSprite.sizeX, partSprite.sizeY, partSprite.sheetX, partSprite.sheetY, offsetX, offsetY });
                         ret.parts[i] = try BunkerPart.init(Position{ .x = pos.x + offsetX, .y = pos.y + offsetY }, &partSprite, allocator);
                     }
                 } else {
                     var partSprite = Sprite{ .sizeY = stepY, .sizeX = stepX, .sheetX = sprite.sheetX + @as(u32, @intCast(x)) * stepX, .sheetY = sprite.sheetY + (bH - @as(u32, @intCast(y)) - 1) * stepY, .color = sprite.color, .mask = null };
-                    std.debug.print("created size = {d}/{d}, sheet = {d}/{d}, offset = {d}/{d} \n ", .{ partSprite.sizeX, partSprite.sizeY, partSprite.sheetX, partSprite.sheetY, offsetX, offsetY });
                     ret.parts[i] = try BunkerPart.init(Position{ .x = pos.x + offsetX, .y = pos.y + offsetY }, &partSprite, allocator);
                 }
             }
