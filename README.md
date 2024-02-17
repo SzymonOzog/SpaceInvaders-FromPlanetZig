@@ -11,7 +11,7 @@ zig build run
 - Space bar to shoot
 
 # Screenshot 
-![image](https://github.com/SzymonOzog/SpaceInvaders-FromPlanetZig-/assets/58388001/b686863e-5c57-48a4-aaf6-3e6f983a9b88)
+![image](https://github.com/SzymonOzog/SpaceInvaders-FromPlanetZig/assets/58388001/436af961-1b71-485e-be32-bea40558ff08)
 
 # Additional content
 - python bindings
