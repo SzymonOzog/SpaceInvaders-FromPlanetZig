@@ -18,7 +18,7 @@ var speedupAmount: u32 = 1e4;
 const pointsByRow: [5]u32 = .{ 30, 20, 20, 10, 10 };
 const W: u32 = 224;
 const H: u32 = 256;
-const backgroundColor = 0xFF;
+const backgroundColor = 0;
 const playerSpeed: f32 = 0.0001;
 const bunkerOffset = (blockSize + blockOffset) * 5;
 var buffer: [W * H]u32 = [1]u32{backgroundColor} ** (W * H);
@@ -34,6 +34,12 @@ var playerDeathMarker: ?ds.DeathMarker = null;
 var points: u32 = 0;
 var lifes: u32 = 3;
 const playerStart: ds.Position = ds.Position{ .x = 0, .y = blockSize };
+
+const projectileSpeed: f32 = 0.0001;
+const projectileSpawnDistance: f32 = blockSize;
+const shootCooldownMicro = 1e6;
+
+var projectiles: [100]?ds.Projectile = .{null} ** 100;
 
 var enemies: [5][11]?ds.Object = .{.{null} ** 11} ** 5;
 var deathMarkers: [100]?ds.DeathMarker = .{null} ** 100;
@@ -84,12 +90,6 @@ pub fn createEnemies(round: u32) !void {
         offsetX = 0;
     }
 }
-
-const projectileSpeed: f32 = 0.0001;
-const projectileSpawnDistance: f32 = blockSize;
-const shootCooldownMicro = 1e5;
-
-var projectiles: [100]?ds.Projectile = .{null} ** 100;
 
 pub fn clearBuffer() void {
     for (0..buffer.len) |i| {
