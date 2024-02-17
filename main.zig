@@ -136,6 +136,22 @@ pub fn drawText(text: []const u8, x: u32, y: u32) void {
     }
 }
 
+pub fn printScore(allocator: std.mem.Allocator) !void {
+    const score = try std.fmt.allocPrint(allocator, "{s}{d}", .{ "score", points });
+    drawText(score, 10, 242);
+    allocator.free(score);
+}
+
+pub fn drawLives() void {
+    drawText("lives", 100, 242);
+    const playerSprite = spriteMap.get("player").?;
+    const letterSprite = spriteMap.get("p").?;
+    for (0..lifes) |i| {
+        const offset: u32 = @as(u32, @intCast(i)) * playerSprite.sizeX + 5 * letterSprite.sizeX;
+        drawSprite(100 + offset, 242, playerSprite);
+    }
+}
+
 pub fn addPlayerX(delta: f32) void {
     player.?.pos.x += delta;
     const maxPos: f32 = @floatFromInt(W - player.?.sprite.sizeX);
@@ -315,12 +331,6 @@ pub fn spawnBunkers(allocator: std.mem.Allocator) !void {
     }
 }
 
-pub fn printScore(allocator: std.mem.Allocator) !void {
-    const score = try std.fmt.allocPrint(allocator, "{s}{d}", .{ "score", points });
-    drawText(score, 10, 242);
-    allocator.free(score);
-}
-
 pub fn registerObject(obj: *ds.Object) !void {
     try objectList.append(obj);
     obj.index = spawnedObjects;
@@ -423,6 +433,7 @@ pub fn main() !void {
         }
 
         try printScore(arena.allocator());
+        drawLives();
 
         if (std.time.microTimestamp() - lastEnemyMove > worldStepTime) {
             worldStep += 1;
