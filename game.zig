@@ -360,7 +360,7 @@ pub fn init(inAllocator: std.mem.Allocator) !void {
 
     objectList = try std.ArrayList(*ds.Object).initCapacity(allocator, 100);
 
-    const sheet = try zigimg.Image.fromFilePath(allocator, "SpriteSheet.png");
+    const sheet = try zigimg.Image.fromMemory(allocator, @embedFile("SpriteSheet.png"));
     spriteSheet = try allocator.alloc(bool, sheet.width * sheet.height);
     spriteSheetW = @intCast(sheet.width);
     var it = sheet.iterator();
