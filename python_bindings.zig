@@ -13,6 +13,10 @@ pub export fn getFrame() callconv(.C) [*]u32 {
     return game.renderer.buffer.ptr;
 }
 
+pub export fn getReward() callconv(.C) i32 {
+    return game.reward;
+}
+
 pub export fn getWidth() callconv(.C) u32 {
     return game.W;
 }
@@ -26,6 +30,19 @@ pub export fn advanceFrame(left: bool, right: bool, shoot: bool) callconv(.C) i3
     return 0;
 }
 
+pub export fn isOver() callconv(.C) bool {
+    return game.gameOver;
+}
+
+pub export fn resetState() callconv(.C) bool {
+    game.resetState() catch return false;
+    return true;
+}
+
 pub export fn deinit() callconv(.C) void {
     arena.deinit();
+}
+
+pub export fn setDeltaTimeScale(scale: u32) callconv(.C) void {
+    game.deltaTimeScale = scale;
 }

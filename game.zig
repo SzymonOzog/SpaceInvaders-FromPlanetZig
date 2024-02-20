@@ -58,11 +58,15 @@ var enemyGoingLeft = false;
 var shootTime: i64 = undefined;
 var lastEnemyMove: i64 = undefined;
 var round: u32 = 0;
-var gameOver: bool = false;
+pub var gameOver: bool = false;
 var shotCount: u32 = 0;
 var mysteryShipSpawn: bool = false;
 var worldStep: u32 = 0;
 var startTime: i64 = undefined;
+var gameTime: i64 = 0;
+pub var reward: i32 = 0;
+
+pub var deltaTimeScale: u32 = 1;
 
 pub fn resetState() !void {
     worldStepTime = maxWorldStepTime;
@@ -78,16 +82,17 @@ pub fn resetState() !void {
     bunkers = .{null} ** 4;
     spawnedObjects = 0;
 
+    gameTime = 0;
     deltaTime = 0;
     enemyGoingLeft = false;
-    shootTime = std.time.microTimestamp();
-    lastEnemyMove = std.time.microTimestamp();
+    shootTime = gameTime;
+    lastEnemyMove = gameTime;
     round = 0;
     gameOver = false;
     shotCount = 0;
     mysteryShipSpawn = false;
     worldStep = 0;
-    startTime = std.time.microTimestamp();
+    startTime = gameTime;
     try createEnemies();
     try respawnPlayer();
     try spawnBunkers();
@@ -244,9 +249,10 @@ pub fn updateCollision() !void {
                 for (row, 0..) |enemy, x| {
                     if (enemy) |e| {
                         if (p.dir == 1 and areColliding(e, p.obj)) {
-                            try addDeathMarker(ds.DeathMarker{ .obj = ds.Object{ .pos = e.pos, .sprite = spriteMap.get("enemyDeath").? }, .lifetime = 1e5, .creationTime = std.time.microTimestamp() });
+                            try addDeathMarker(ds.DeathMarker{ .obj = ds.Object{ .pos = e.pos, .sprite = spriteMap.get("enemyDeath").? }, .lifetime = 1e5, .creationTime = gameTime });
                             numEnemiesAlive -= 1;
                             points += pointsByRow[y];
+                            reward += @intCast(pointsByRow[y]);
                             try unregisterObject(p.obj);
                             projectiles[i] = null;
                             try unregisterObject(e);
@@ -267,7 +273,7 @@ pub fn updateCollision() !void {
             }
             if (mysteryShip) |s| {
                 if (p.dir == 1 and areColliding(p.obj, s)) {
-                    try addDeathMarker(ds.DeathMarker{ .obj = ds.Object{ .pos = s.pos, .sprite = spriteMap.get("enemyDeath").? }, .lifetime = 1e5, .creationTime = std.time.microTimestamp() });
+                    try addDeathMarker(ds.DeathMarker{ .obj = ds.Object{ .pos = s.pos, .sprite = spriteMap.get("enemyDeath").? }, .lifetime = 1e5, .creationTime = gameTime });
                     try unregisterObject(s);
                     mysteryShip = null;
                     try unregisterObject(p.obj);
@@ -284,6 +290,9 @@ pub fn updateCollision() !void {
                                 if (pt.*.onHit()) {
                                     try unregisterObject(pt.*.obj);
                                     part.* = null;
+                                }
+                                if (p.dir == 1) {
+                                    reward -= 100;
                                 }
                                 try unregisterObject(p.obj);
                                 projectiles[i] = null;
@@ -309,11 +318,12 @@ pub fn areAnyEnemiesAlive() bool {
 }
 
 pub fn killPlayer() !void {
-    playerDeathMarker = ds.DeathMarker{ .creationTime = std.time.microTimestamp(), .lifetime = 1e6, .obj = ds.Object{ .pos = player.?.pos, .sprite = spriteMap.get("playerDeath").? } };
+    playerDeathMarker = ds.DeathMarker{ .creationTime = gameTime, .lifetime = 1e6, .obj = ds.Object{ .pos = player.?.pos, .sprite = spriteMap.get("playerDeath").? } };
     try registerObject(&playerDeathMarker.?.obj);
     try unregisterObject(player.?);
     player = null;
     lifes -= 1;
+    reward -= 1000;
 }
 
 pub fn shootEnemy() !void {
@@ -374,6 +384,7 @@ pub fn init(inAllocator: std.mem.Allocator) !void {
 }
 
 pub fn advanceFrame(playerInput: ds.PlayerInput) !void {
+    reward = 0;
     renderer.clearBuffer();
     if (gameOver) {
         drawText("game over", 80, 140);
@@ -391,7 +402,7 @@ pub fn advanceFrame(playerInput: ds.PlayerInput) !void {
 
     for (deathMarkers, 0..) |dm, i| {
         if (dm) |o| {
-            if (std.time.microTimestamp() - o.creationTime > o.lifetime) {
+            if (gameTime - o.creationTime > o.lifetime) {
                 try unregisterObject(o.obj);
                 deathMarkers[i] = null;
             }
@@ -399,7 +410,7 @@ pub fn advanceFrame(playerInput: ds.PlayerInput) !void {
     }
 
     if (playerDeathMarker) |dm| {
-        if (std.time.microTimestamp() - dm.creationTime > dm.lifetime) {
+        if (gameTime - dm.creationTime > dm.lifetime) {
             try unregisterObject(dm.obj);
             playerDeathMarker = null;
             if (lifes > 0) {
@@ -414,11 +425,11 @@ pub fn advanceFrame(playerInput: ds.PlayerInput) !void {
             addPlayerX(-playerSpeed * deltaTime);
         } else if (playerInput.right) {
             addPlayerX(playerSpeed * deltaTime);
-        } else if (playerInput.shoot and std.time.microTimestamp() - shootTime > shootCooldownMicro) {
+        } else if (playerInput.shoot and gameTime - shootTime > shootCooldownMicro) {
             try addProjectile(ds.Projectile{ .obj = ds.Object{ .pos = .{ .x = p.pos.x + @as(f32, @floatFromInt(player.?.sprite.sizeX)) / 2, .y = p.pos.y + projectileSpawnDistance }, .sprite = spriteMap.get("playerProjectile").? }, .dir = 1 });
             shotCount += 1;
             mysteryShipSpawn = (shotCount % 23) == 0;
-            shootTime = std.time.microTimestamp();
+            shootTime = gameTime;
         }
     }
     if (mysteryShip) |s| {
@@ -437,12 +448,12 @@ pub fn advanceFrame(playerInput: ds.PlayerInput) !void {
     try printScore(10, 242);
     drawLives();
 
-    if (std.time.microTimestamp() - lastEnemyMove > worldStepTime) {
+    if (gameTime - lastEnemyMove > worldStepTime) {
         worldStep += 1;
         for (objectList.items) |o| {
             o.stepAnim(worldStep);
         }
-        lastEnemyMove = std.time.microTimestamp();
+        lastEnemyMove = gameTime;
         try shootEnemy();
         var reachedEnd: bool = false;
         if (enemyGoingLeft) {
@@ -463,6 +474,7 @@ pub fn advanceFrame(playerInput: ds.PlayerInput) !void {
         try createEnemies();
         enemyGoingLeft = false;
     }
-    deltaTime = @floatFromInt(std.time.microTimestamp() - startTime);
+    deltaTime = @floatFromInt((std.time.microTimestamp() - startTime) * deltaTimeScale);
     startTime = std.time.microTimestamp();
+    gameTime += @intFromFloat(deltaTime);
 }
