@@ -19,9 +19,9 @@ const speedupAmount: u32 = 1e4;
 
 const pointsByRow: [5]u32 = .{ 30, 20, 20, 10, 10 };
 
-const playerStart: ds.Position = ds.Position{ .x = 0, .y = blockSize };
+const playerStart: ds.Position = ds.Position{ .x = 20, .y = blockSize };
 const playerSpeed: f32 = 0.0001;
-const bunkerOffset = (blockSize + blockOffset) * 5;
+const bunkerOffset = (blockSize + blockOffset) * 6;
 
 const projectileSpeed: f32 = 0.0001;
 const projectileSpawnDistance: f32 = blockSize;
