@@ -93,6 +93,7 @@ pub fn resetState() !void {
     mysteryShipSpawn = false;
     worldStep = 0;
     startTime = gameTime;
+    objectList.clearAndFree();
     try createEnemies();
     try respawnPlayer();
     try spawnBunkers();
@@ -252,7 +253,7 @@ pub fn updateCollision() !void {
                             try addDeathMarker(ds.DeathMarker{ .obj = ds.Object{ .pos = e.pos, .sprite = spriteMap.get("enemyDeath").? }, .lifetime = 1e5, .creationTime = gameTime });
                             numEnemiesAlive -= 1;
                             points += pointsByRow[y];
-                            reward += @intCast(pointsByRow[y]);
+                            reward += @intCast(pointsByRow[y] * 10);
                             try unregisterObject(p.obj);
                             projectiles[i] = null;
                             try unregisterObject(e);
