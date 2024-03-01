@@ -25,6 +25,10 @@ pub export fn getHeight() callconv(.C) u32 {
     return game.H;
 }
 
+pub export fn getScore() callconv(.C) u32 {
+    return game.points;
+}
+
 pub export fn advanceFrame(left: bool, right: bool, shoot: bool) callconv(.C) i32 {
     game.advanceFrame(.{ .left = left, .right = right, .shoot = shoot }) catch return -1;
     return 0;
@@ -36,6 +40,8 @@ pub export fn isOver() callconv(.C) bool {
 
 pub export fn resetState() callconv(.C) bool {
     game.resetState() catch return false;
+    _ = deinit();
+    _ = init();
     return true;
 }
 
