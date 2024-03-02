@@ -457,6 +457,7 @@ pub fn advanceFrame(playerInput: ds.PlayerInput) !void {
         lastEnemyMove = gameTime;
         try shootEnemy();
         var reachedEnd: bool = false;
+        reward -= 1;
         if (enemyGoingLeft) {
             reachedEnd = addEnemyX(-enemyMoveDeltaX);
         } else {
@@ -465,6 +466,7 @@ pub fn advanceFrame(playerInput: ds.PlayerInput) !void {
         if (reachedEnd) {
             gameOver = addEnemyY(-enemyMoveDeltaY);
             enemyGoingLeft = !enemyGoingLeft;
+            reward -= 10;
         }
     }
     try updateCollision();
