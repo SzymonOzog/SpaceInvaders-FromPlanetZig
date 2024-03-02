@@ -333,7 +333,7 @@ pub fn shootEnemy() !void {
         for (row) |enemy| {
             if (enemy) |e| {
                 if (rand.intRangeAtMost(u32, 0, shootProbability) == 0) {
-                    try addProjectile(ds.Projectile{ .dir = -1, .obj = ds.Object{ .pos = .{ .x = e.pos.x, .y = e.pos.y }, .sprite = spriteMap.get("enemyProjectile").? } });
+                    try addProjectile(ds.Projectile{ .dir = -1, .obj = ds.Object{ .pos = .{ .x = e.pos.x + @as(f32, @floatFromInt(e.sprite.sizeX / 2)), .y = e.pos.y }, .sprite = spriteMap.get("enemyProjectile").? } });
                     return;
                 }
             }
